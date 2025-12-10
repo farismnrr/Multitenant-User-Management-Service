@@ -11,12 +11,15 @@ use uuid::Uuid;
 /// * `exp` - Expiration time (Unix timestamp)
 /// * `iat` - Issued at (Unix timestamp)
 /// * `token_type` - Token type ("access" or "refresh")
+/// * `jti` - JWT ID (optional, for refresh tokens to ensure uniqueness)
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
     pub sub: String,
     pub exp: i64,
     pub iat: i64,
     pub token_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub jti: Option<String>,
 }
 
 /// JWT token service for generating and validating tokens.
@@ -85,6 +88,7 @@ impl JwtService {
             exp: exp.timestamp(),
             iat: now.timestamp(),
             token_type: "access".to_string(),
+            jti: None, // Access tokens don't need JTI
         };
 
         encode(
@@ -117,6 +121,7 @@ impl JwtService {
             exp: exp.timestamp(),
             iat: now.timestamp(),
             token_type: "refresh".to_string(),
+            jti: Some(Uuid::new_v4().to_string()), // Unique ID for each refresh token
         };
 
         encode(

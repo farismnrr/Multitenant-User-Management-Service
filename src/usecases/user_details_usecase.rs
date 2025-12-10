@@ -103,6 +103,12 @@ impl UserDetailsUseCase {
             // Generate unique filename
             let file_ext = filename.rsplit('.').next().unwrap_or("png");
             let new_filename = format!("{}_{}.{}", user_id, chrono::Utc::now().timestamp(), file_ext);
+            
+            // Ensure directory exists
+            if let Err(e) = std::fs::create_dir_all("assets/profiles") {
+                return Err(AppError::InternalError(format!("Failed to create directory: {}", e)));
+            }
+
             let filepath = format!("assets/profiles/{}", new_filename);
 
             // Read file data

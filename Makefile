@@ -10,6 +10,13 @@ help:
 	@echo "  make start            - Run development server without hot reload"
 	@echo "  make install-watch    - Install cargo-watch for hot reload"
 	@echo "  make build            - Build release binary"
+	@echo "  make build-docker     - Build Docker image"
+	@echo "  make start-docker     - Run Docker image (with .env and host network)"
+	@echo "  make push             - Push Docker image to GHCR"
+	@echo "  make pull-docker      - Pull latest image for Docker Compose"
+	@echo "  make start-compose    - Start Docker Compose stack (pulls first)"
+	@echo "  make stop-compose     - Stop Docker Compose stack"
+	@echo "  make update    - Update running container using Watchtower"
 	@echo "  make test             - Run all tests"
 	@echo "  make test-integration - Run integration tests (whitebox)"
 	@echo "  make test-e2e         - Run E2E tests (blackbox)"
@@ -45,6 +52,59 @@ install-watch:
 build:
 	@echo "🔨 Building release binary..."
 	cargo build --release
+
+# --- Docker Configuration ---
+DOCKER_IMAGE_NAME = user_auth_plugin
+GHCR_REPO = ghcr.io/farismnrr/user_auth_plugin
+DOCKER_TAG = latest
+
+# Build via Docker
+build-docker:
+	@echo "🐳 Building Docker image..."
+	docker build -t $(DOCKER_IMAGE_NAME) .
+
+# Run via Docker (with .env and host network)
+start-docker:
+	@echo "🚀 Starting Docker container..."
+	docker run --rm -it --network="host" --env-file .env $(DOCKER_IMAGE_NAME)
+
+# Push to GHCR (reads env vars)
+push:
+	@echo "🏷️  Tagging image..."
+	docker tag $(DOCKER_IMAGE_NAME) $(GHCR_REPO):$(DOCKER_TAG)
+	@echo "🚀 Pushing to GHCR..."
+	@echo "🔐 Logging in to GHCR..."
+	@export $$(grep -v '^#' .env | grep -v '^$$' | xargs) && \
+	(echo "$${CR_PAT:-$$GITHUB_TOKEN}" | docker login ghcr.io -u farismnrr --password-stdin)
+	docker push $(GHCR_REPO):$(DOCKER_TAG)
+	@echo "✅ Image pushed to $(GHCR_REPO):$(DOCKER_TAG)"
+
+# --- Docker Compose Configuration ---
+
+# Pull latest image for Docker Compose
+pull-docker:
+	@echo "📥 Pulling latest Docker image..."
+	docker compose pull
+
+# Start Docker Compose (pulls first)
+start-compose: pull-docker
+	@echo "🚀 Starting Docker Compose stack..."
+	docker compose up -d
+
+# Stop Docker Compose
+stop-compose:
+	@echo "🛑 Stopping Docker Compose stack..."
+	docker compose down
+
+# Update running container using Watchtower
+update:
+	@echo "🔄 Checking for updates with Watchtower..."
+	docker run --rm \
+		-v /var/run/docker.sock:/var/run/docker.sock \
+		--env DOCKER_API_VERSION=1.45 \
+		containrrr/watchtower \
+		--run-once \
+		user_auth_plugin
 
 # Run all tests
 test:
@@ -140,6 +200,4 @@ clean:
 kill:
 	@echo "🔪 Killing processes on port 5500..."
 	@lsof -ti:5500 | xargs -r kill -9 || echo "✅ No process running on port 5500"
-
-
 

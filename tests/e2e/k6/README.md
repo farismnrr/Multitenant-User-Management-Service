@@ -13,19 +13,22 @@ Comprehensive blackbox E2E tests for all API endpoints using k6.
 ```
 tests/e2e/k6/
 ├── config.js              # Shared configuration
+├── test-e2e.js            # Main entry point
 ├── utils.js               # Helper functions
 ├── auth/                  # Auth endpoint tests
-│   ├── register.js        # POST /auth/register
+│   ├── change_password.js # POST /auth/change-password
 │   ├── login.js           # POST /auth/login
 │   ├── logout.js          # POST /auth/logout
 │   ├── refresh.js         # POST /auth/refresh
+│   ├── register.js        # POST /auth/register
 │   └── verify.js          # POST /auth/verify
 ├── users/                 # User endpoint tests
+│   ├── delete.js          # DELETE /users
 │   ├── get.js             # GET /users
 │   ├── get_all.js         # GET /users/all
-│   ├── update.js          # PUT /users
-│   └── delete.js          # DELETE /users
+│   └── update.js          # PUT /users
 └── user_details/          # User details endpoint tests
+    ├── get.js             # GET /users/details
     ├── update.js          # PUT /users/details
     └── upload.js          # PATCH /users/uploads
 ```
@@ -34,19 +37,20 @@ tests/e2e/k6/
 
 ### Run All Tests
 ```bash
-make test-k6
+make test-e2e
 ```
+*Generates HTML report at `coverage/test-e2e.html`*
 
 ### Run Specific Test Suites
 ```bash
 # Auth tests only
-make test-k6-auth
+make test-e2e-auth
 
 # User tests only
-make test-k6-users
+make test-e2e-users
 
 # User details tests only
-make test-k6-details
+make test-e2e-details
 ```
 
 ### Run Individual Test
@@ -63,7 +67,8 @@ BASE_URL=http://localhost:3000 API_KEY=your-key k6 run tests/e2e/k6/auth/login.j
 
 Each test file covers all user behavior permutations:
 
-### Auth Tests (5 files)
+### Auth Tests (6 files)
+- **change_password.js**: Valid password change, wrong old password, mismatch new password
 - **register.js**: Valid registration, duplicate email/username, invalid email, missing fields, weak password
 - **login.js**: Login with email/username, wrong password, non-existent user, missing credentials
 - **logout.js**: Successful logout, logout without being logged in
@@ -71,12 +76,13 @@ Each test file covers all user behavior permutations:
 - **verify.js**: Valid JWT, invalid JWT, expired JWT, missing auth, deleted user
 
 ### User Tests (4 files)
+- **delete.js**: Successful deletion, without JWT, already deleted user, login after deletion
 - **get.js**: Get with valid JWT, without JWT, with invalid JWT
 - **get_all.js**: Get all with valid JWT, without JWT, array validation
 - **update.js**: Valid update, partial update, duplicate email/username, invalid data
-- **delete.js**: Successful deletion, without JWT, already deleted user, login after deletion
 
-### User Details Tests (2 files)
+### User Details Tests (3 files)
+- **get.js**: Get details with valid JWT, without JWT, not found
 - **update.js**: Valid update, partial update, null values, invalid data types, invalid date
 - **upload.js**: Valid upload, without JWT, invalid file type, missing file, oversized file
 

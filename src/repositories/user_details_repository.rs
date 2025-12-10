@@ -58,7 +58,7 @@ impl UserDetailsRepositoryTrait for UserDetailsRepository {
     async fn create(&self, user_id: Uuid) -> Result<UserDetails, AppError> {
         let user_details = user_details::ActiveModel {
             user_id: Set(user_id),
-            profile_picture_url: Set(Some("/assets/profiles/default.png".to_string())),
+            profile_picture_url: Set(Some("https://storage.googleapis.com/farismnrr-gclouds.appspot.com/default.png".to_string())),
             ..Default::default()
         };
 
