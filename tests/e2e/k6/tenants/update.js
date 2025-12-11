@@ -111,6 +111,14 @@ export default function () {
 
     /**
      * Test Case: Update tenant with valid data
+     * URL: {apiUrl}/tenants/:id
+     * Body: { "name": "...", "description": "...", "is_active": true }
+     * Auth: Bearer <valid_jwt>
+     * Expected (200): {
+     *   "success": true,
+     *   "message": "Tenant updated successfully",
+     *   "data": { "id": "...", "name": "Updated...", ... }
+     * }
      */
     console.log('Test 1: Update tenant with valid data');
     const updateUrl = `${tenantsUrl}/${createdTenantId}`;
@@ -130,6 +138,13 @@ export default function () {
 
     /**
      * Test Case: Update tenant without JWT
+     * URL: {apiUrl}/tenants/:id
+     * Body: { "name": "..." }
+     * Auth: None
+     * Expected (401): {
+     *   "success": false,
+     *   "message": "Missing authentication token"
+     * }
      */
     console.log('Test 2: Update tenant without JWT');
     const noAuthHeaders = {
@@ -146,6 +161,13 @@ export default function () {
 
     /**
      * Test Case: Update non-existent tenant
+     * URL: {apiUrl}/tenants/:id
+     * Body: { "name": "..." }
+     * Auth: Bearer <valid_jwt>
+     * Expected (404): {
+     *   "success": false,
+     *   "message": "Tenant not found"
+     * }
      */
     console.log('Test 3: Update non-existent tenant');
     const fakeId = '00000000-0000-0000-0000-000000000000';
@@ -160,6 +182,13 @@ export default function () {
 
     /**
      * Test Case: Update with duplicate name
+     * URL: {apiUrl}/tenants/:id
+     * Body: { "name": "<existing_name>" }
+     * Auth: Bearer <valid_jwt>
+     * Expected (409): {
+     *   "success": false,
+     *   "message": "Tenant name already exists"
+     * }
      */
     console.log('Test 4: Update with duplicate name');
     // Create another tenant

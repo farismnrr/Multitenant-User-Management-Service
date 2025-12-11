@@ -64,6 +64,15 @@ export default function () {
 
     /**
      * Test Case: Create user with details, then soft delete user
+     * URL: {apiUrl}/users (DELETE)
+     * Body: None
+     * Auth: Bearer <valid_jwt>
+     * Expected (200): {
+     *   "success": true,
+     *   "message": "User deleted successfully",
+     *   "data": { "id": "uuid" }
+     * }
+     * Note: Deleting user also soft deletes associated user_details
      */
     console.log('Test 1: Create user with details and delete user');
 
@@ -112,6 +121,13 @@ export default function () {
 
     /**
      * Test Case: Verify deleted user cannot login
+     * URL: {apiUrl}/api/auth/login
+     * Body: { email_or_username: <deleted_user_email>, password: <password> }
+     * Auth: X-API-Key
+     * Expected (401): {
+     *   "success": false,
+     *   "message": "Invalid credentials"
+     * }
      */
     console.log('Test 2: Verify deleted user cannot login');
     loginResponse = http.post(loginUrl, JSON.stringify(loginPayload), { headers });
@@ -121,32 +137,53 @@ export default function () {
 
     /**
      * Test Case: Create another user to verify deleted user details don't leak
+     * URL: {apiUrl}/users/details (GET)
+     * Body: None
+     * Auth: Bearer <new_user_jwt>
+     * Expected (200 or 404): {
+     *   "success": true,
+     *   "message": "User details retrieved successfully",
+     *   "data": null or { ... } // Should NOT return deleted user's details
+     * }
      */
-    console.log('Test 3: Verify user details are properly isolated after deletion');
+    console.log('Test 3: Create another user and verify no data leakage');
 
-    const anotherUser = registerTestUser(tenantId, 'user');
+    // Create another user
+    const newUser = registerTestUser(tenantId, 'user');
     sleep(shortSleep());
 
-    const anotherLoginPayload = {
-        email_or_username: anotherUser.email,
-        password: anotherUser.password,
+    const newLoginPayload = {
+        email_or_username: newUser.email,
+        password: newUser.password,
     };
 
-    const anotherLoginResponse = http.post(loginUrl, JSON.stringify(anotherLoginPayload), { headers });
-    const anotherAccessToken = extractAccessToken(anotherLoginResponse);
+    const newLoginResponse = http.post(loginUrl, JSON.stringify(newLoginPayload), { headers });
+    const newAccessToken = extractAccessToken(newLoginResponse);
     sleep(shortSleep());
 
-    const anotherAuthHeaders = {
+    const newAuthHeaders = {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${anotherAccessToken}`,
+        'Authorization': `Bearer ${newAccessToken}`,
     };
 
-    // Try to get user details (should be empty/null for new user)
-    response = http.get(userDetailsUrl, { headers: anotherAuthHeaders });
-    // New user should not have details yet
-    console.log('New user has separate user details context - PASSED');
-    sleep(shortSleep());
+    // Try to get user details (should be empty or 404 for new user)
+    response = http.get(userDetailsUrl, { headers: newAuthHeaders });
+    console.log(`New user details response status: ${response.status}`);
 
+    if (response.status === 200) {
+        const detailsData = JSON.parse(response.body).data;
+        if (!detailsData || !detailsData.full_name) {
+            console.log('New user has no details (correct) - PASSED');
+        } else if (detailsData.full_name === 'Test User') {
+            console.log('[FAILED] New user got deleted user\'s details!');
+        } else {
+            console.log('New user has different details - PASSED');
+        }
+    } else if (response.status === 404) {
+        console.log('New user details not found (correct) - PASSED');
+    }
+
+    sleep(shortSleep());
     console.log('User details soft delete test completed');
-    console.log('Note: User details are soft deleted when user is deleted');
+    console.log('Note: User details are soft deleted when parent user is deleted');
 }

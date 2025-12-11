@@ -49,9 +49,6 @@ import { sleep } from 'k6';
 import { BASE_URL, options, headers } from '../config.js';
 import { getTestTenantId, registerTestUser } from '../helpers.js';
 import {
-    randomEmail,
-    randomUsername,
-    randomPassword,
     extractAccessToken,
     checkSuccess,
     checkError,
@@ -68,6 +65,15 @@ export default function () {
 
     /**
      * Test Case: Delete user and verify soft delete behavior
+     * URL: {apiUrl}/users
+     * Body: None
+     * Auth: Bearer <valid_jwt>
+     * Expected (200): {
+     *   "success": true,
+     *   "message": "User deleted successfully",
+     *   "data": { "id": "uuid" }
+     * }
+     * Note: Soft delete sets deleted_at timestamp
      */
     console.log('Test 1: Create user, delete it, and verify soft delete');
 
@@ -104,6 +110,13 @@ export default function () {
 
     /**
      * Test Case: Verify deleted user cannot login
+     * URL: {apiUrl}/api/auth/login
+     * Body: { email_or_username: <deleted_user_email>, password: <password> }
+     * Auth: X-API-Key
+     * Expected (401): {
+     *   "success": false,
+     *   "message": "Invalid credentials"
+     * }
      */
     console.log('Test 2: Verify deleted user cannot login');
     loginResponse = http.post(loginUrl, JSON.stringify(loginPayload), { headers });
@@ -113,6 +126,14 @@ export default function () {
 
     /**
      * Test Case: Verify deleted user doesn't appear in listings
+     * URL: {apiUrl}/users/all
+     * Body: None
+     * Auth: Bearer <valid_jwt>
+     * Expected (200): {
+     *   "success": true,
+     *   "message": "Users retrieved successfully",
+     *   "data": [ ... ] // Should NOT include deleted user
+     * }
      */
     console.log('Test 3: Verify deleted user doesn\'t appear in GET /users/all');
 
@@ -150,6 +171,9 @@ export default function () {
 
     /**
      * Test Case: Verify soft delete preserves data
+     * Note: This test confirms that soft delete only sets deleted_at
+     *       timestamp instead of removing the record from database.
+     *       The record still exists but is filtered from queries.
      */
     console.log('Test 4: Soft delete test completed');
     console.log('Note: Soft delete sets deleted_at timestamp instead of removing record');

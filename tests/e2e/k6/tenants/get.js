@@ -120,6 +120,14 @@ export default function () {
 
     /**
      * Test Case: Get all tenants
+     * URL: {apiUrl}/tenants
+     * Body: None
+     * Auth: Bearer <valid_jwt>
+     * Expected (200): {
+     *   "success": true,
+     *   "message": "Tenants retrieved successfully",
+     *   "data": [ {...}, {...}, ... ]
+     * }
      */
     console.log('Test 1: Get all tenants with valid JWT');
     let response = http.get(tenantsUrl, { headers: authHeaders });
@@ -131,6 +139,14 @@ export default function () {
 
     /**
      * Test Case: Get tenant by ID
+     * URL: {apiUrl}/tenants/:id
+     * Body: None
+     * Auth: Bearer <valid_jwt>
+     * Expected (200): {
+     *   "success": true,
+     *   "message": "Tenant retrieved successfully",
+     *   "data": { "id": "...", "name": "...", ... }
+     * }
      */
     console.log('Test 2: Get tenant by ID with valid JWT');
     const getTenantUrl = `${tenantsUrl}/${createdTenantId}`;
@@ -143,6 +159,13 @@ export default function () {
 
     /**
      * Test Case: Get tenant without JWT
+     * URL: {apiUrl}/tenants
+     * Body: None
+     * Auth: None
+     * Expected (401): {
+     *   "success": false,
+     *   "message": "Missing authentication token"
+     * }
      */
     console.log('Test 3: Get tenants without JWT');
     const noAuthHeaders = {
@@ -155,6 +178,13 @@ export default function () {
 
     /**
      * Test Case: Get non-existent tenant
+     * URL: {apiUrl}/tenants/:id
+     * Body: None
+     * Auth: Bearer <valid_jwt>
+     * Expected (404): {
+     *   "success": false,
+     *   "message": "Tenant not found"
+     * }
      */
     console.log('Test 4: Get non-existent tenant');
     const fakeId = '00000000-0000-0000-0000-000000000000';

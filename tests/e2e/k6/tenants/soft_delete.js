@@ -107,13 +107,28 @@ export default function () {
     console.log('Tenant exists before deletion');
     sleep(shortSleep());
 
-    // Delete the tenant (soft delete)
+    /**
+     * Test Case: Delete tenant (soft delete)
+     * URL: {apiUrl}/tenants/:id
+     * Body: None
+     * Auth: Bearer <valid_jwt>
+     * Expected (204): No Content
+     * Note: Soft delete sets deleted_at timestamp
+     */
+    console.log('Test 1: Delete tenant (soft delete)');
     response = http.del(`${tenantsUrl}/${deleteTenantId}`, null, { headers: authHeaders });
     console.log(`Delete response status: ${response.status}`);
     sleep(shortSleep());
 
     /**
      * Test Case: Verify deleted tenant doesn't appear in GET /tenants/:id
+     * URL: {apiUrl}/tenants/:id
+     * Body: None
+     * Auth: Bearer <valid_jwt>
+     * Expected (404): {
+     *   "success": false,
+     *   "message": "Tenant not found"
+     * }
      */
     console.log('Test 2: Verify deleted tenant not found by ID');
     response = http.get(`${tenantsUrl}/${deleteTenantId}`, { headers: authHeaders });
@@ -123,6 +138,14 @@ export default function () {
 
     /**
      * Test Case: Verify deleted tenant doesn't appear in GET /tenants
+     * URL: {apiUrl}/tenants
+     * Body: None
+     * Auth: Bearer <valid_jwt>
+     * Expected (200): {
+     *   "success": true,
+     *   "message": "Tenants retrieved successfully",
+     *   "data": [ ... ] // Should NOT include deleted tenant
+     * }
      */
     console.log('Test 3: Verify deleted tenant not in listings');
     response = http.get(tenantsUrl, { headers: authHeaders });
@@ -140,6 +163,13 @@ export default function () {
 
     /**
      * Test Case: Try to delete already deleted tenant (idempotent)
+     * URL: {apiUrl}/tenants/:id
+     * Body: None
+     * Auth: Bearer <valid_jwt>
+     * Expected (404): {
+     *   "success": false,
+     *   "message": "Tenant not found"
+     * }
      */
     console.log('Test 4: Delete already deleted tenant (should return 404)');
     response = http.del(`${tenantsUrl}/${deleteTenantId}`, null, { headers: authHeaders });
