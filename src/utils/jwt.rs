@@ -8,6 +8,8 @@ use uuid::Uuid;
 /// # Fields
 ///
 /// * `sub` - Subject (user ID)
+/// * `tenant_id` - Tenant ID for tenant-scoped authentication
+/// * `role` - User's role within the tenant
 /// * `exp` - Expiration time (Unix timestamp)
 /// * `iat` - Issued at (Unix timestamp)
 /// * `token_type` - Token type ("access" or "refresh")
@@ -15,6 +17,8 @@ use uuid::Uuid;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
     pub sub: String,
+    pub tenant_id: String,
+    pub role: String,
     pub exp: i64,
     pub iat: i64,
     pub token_type: String,
@@ -71,6 +75,8 @@ impl JwtService {
     /// # Arguments
     ///
     /// * `user_id` - UUID of the user
+    /// * `tenant_id` - UUID of the tenant
+    /// * `role` - User's role within the tenant
     ///
     /// # Returns
     ///
@@ -79,12 +85,14 @@ impl JwtService {
     /// # Errors
     ///
     /// Returns `jsonwebtoken::errors::Error` if token encoding fails.
-    pub fn generate_access_token(&self, user_id: Uuid) -> Result<String, jsonwebtoken::errors::Error> {
+    pub fn generate_access_token(&self, user_id: Uuid, tenant_id: Uuid, role: String) -> Result<String, jsonwebtoken::errors::Error> {
         let now = Utc::now();
         let exp = now + Duration::seconds(self.access_token_expiry);
 
         let claims = Claims {
             sub: user_id.to_string(),
+            tenant_id: tenant_id.to_string(),
+            role,
             exp: exp.timestamp(),
             iat: now.timestamp(),
             token_type: "access".to_string(),
@@ -103,6 +111,8 @@ impl JwtService {
     /// # Arguments
     ///
     /// * `user_id` - UUID of the user
+    /// * `tenant_id` - UUID of the tenant
+    /// * `role` - User's role within the tenant
     ///
     /// # Returns
     ///
@@ -112,12 +122,14 @@ impl JwtService {
     /// # Errors
     ///
     /// Returns `jsonwebtoken::errors::Error` if token encoding fails.
-    pub fn generate_refresh_token(&self, user_id: Uuid) -> Result<String, jsonwebtoken::errors::Error> {
+    pub fn generate_refresh_token(&self, user_id: Uuid, tenant_id: Uuid, role: String) -> Result<String, jsonwebtoken::errors::Error> {
         let now = Utc::now();
         let exp = now + Duration::seconds(self.refresh_token_expiry);
 
         let claims = Claims {
             sub: user_id.to_string(),
+            tenant_id: tenant_id.to_string(),
+            role,
             exp: exp.timestamp(),
             iat: now.timestamp(),
             token_type: "refresh".to_string(),

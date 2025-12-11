@@ -55,7 +55,7 @@
 import http from 'k6/http';
 import { sleep } from 'k6';
 import { BASE_URL, options, headers } from '../config.js';
-// ... imports
+import { getTestTenantId, registerTestUser } from '../helpers.js';
 import {
     randomEmail,
     randomUsername,
@@ -70,20 +70,12 @@ import {
 export { options };
 
 export default function () {
-    const registerUrl = `${BASE_URL}/api/auth/register`;
     const loginUrl = `${BASE_URL}/api/auth/login`;
     const updateDetailsUrl = `${BASE_URL}/users/details`;
 
     // Setup: Create a test user
-    const testUser = {
-        username: randomUsername(),
-        tenant_id: TENANT_ID,
-        role: "user",
-        email: randomEmail(),
-        password: randomPassword(),
-    };
-
-    http.post(registerUrl, JSON.stringify(testUser), { headers });
+    const tenantId = getTestTenantId();
+    const testUser = registerTestUser(tenantId, 'user');
     sleep(shortSleep());
 
     // Login

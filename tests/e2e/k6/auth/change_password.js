@@ -42,7 +42,8 @@
 
 import http from 'k6/http';
 import { sleep } from 'k6';
-import { BASE_URL, headers, options } from '../config.js';
+import { options } from '../config.js';
+import { BASE_URL, API_KEY, getTestTenantId, registerTestUser } from '../helpers.js';
 import {
     randomEmail,
     randomUsername,
@@ -53,33 +54,27 @@ import {
     shortSleep
 } from '../utils.js';
 
+const headers = { 'Content-Type': 'application/json', 'X-API-Key': API_KEY };
+
 export { options };
 
 export default function () {
-    const registerUrl = `${BASE_URL}/api/auth/register`;
     const loginUrl = `${BASE_URL}/api/auth/login`;
     const changePasswordUrl = `${BASE_URL}/auth/change-password`;
 
     // Setup: Create a test user first
-    const testUser = {
-        username: randomUsername(),
-        tenant_id: TENANT_ID,
-        role: "user",
-        email: randomEmail(),
-        password: randomPassword(),
+    const tenantId = getTestTenantId();
+    const testUser = registerTestUser(tenantId, 'user');
+    sleep(shortSleep());
+
+    // Login to get access token
+    const loginPayload = {
+        email_or_username: testUser.email,
+        password: testUser.password,
+        tenant_id: tenantId,
     };
 
-    /**
-     * Setup: Create a test user
-     * URL: {apiUrl}/api/auth/register
-     * Auth: X-API-Key
-     * Expected: {
-     *   "success": true,
-     *   "message": "User registered successfully",
-     *   "data": { "id": "...", "access_token": "..." }
-     * }
-     */
-    let response = http.post(registerUrl, JSON.stringify(testUser), { headers });
+    let response = http.post(loginUrl, JSON.stringify(loginPayload), { headers });
     const accessToken = extractAccessToken(response);
     sleep(shortSleep());
 

@@ -58,6 +58,7 @@
 import http from 'k6/http';
 import { sleep } from 'k6';
 import { BASE_URL, options, headers } from '../config.js';
+import { getTestTenantId, registerTestUser } from '../helpers.js';
 import {
     randomEmail,
     randomUsername,
@@ -72,21 +73,13 @@ import {
 export { options };
 
 export default function () {
-    const registerUrl = `${BASE_URL}/api/auth/register`;
     const loginUrl = `${BASE_URL}/api/auth/login`;
     const tenantsUrl = `${BASE_URL}/tenants`;
 
     // Setup: Create and login a test user
     // JWT authentication is required for all tenant operations
-    const testUser = {
-        username: randomUsername(),
-        tenant_id: TENANT_ID,
-        role: "user",
-        email: randomEmail(),
-        password: randomPassword(),
-    };
-
-    http.post(registerUrl, JSON.stringify(testUser), { headers });
+    const tenantId = getTestTenantId();
+    const testUser = registerTestUser(tenantId, 'user');
     sleep(shortSleep());
 
     const loginPayload = {
@@ -113,14 +106,14 @@ export default function () {
 
     const createResponse = http.post(tenantsUrl, JSON.stringify(createPayload), { headers: authHeaders });
     const createdTenant = JSON.parse(createResponse.body).data;
-    const tenantId = createdTenant.id;
+    const createdTenantId = createdTenant.id;
     sleep(shortSleep());
 
     /**
      * Test Case: Update tenant with valid data
      */
     console.log('Test 1: Update tenant with valid data');
-    const updateUrl = `${tenantsUrl}/${tenantId}`;
+    const updateUrl = `${tenantsUrl}/${createdTenantId}`;
     const updatedName = `Updated_${randomString(8)}`;
     const updatePayload = {
         name: updatedName,

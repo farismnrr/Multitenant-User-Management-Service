@@ -5,8 +5,21 @@ A production-ready, general-purpose user authentication and management service b
 ## Key Features
 
 - **Auth**: JWT (Access/Refresh), RBAC, Session Management
+- **Multi-tenancy**: Tenant-scoped users, Tenant Isolation, Role-based Access per Tenant
 - **Security**: Argon2, Rate Limiting, API Key Protection
-- **Ops**: Structured Logging, Health Checks, Graceful Shutdown
+- **Ops**: Structured Logging, Health Checks, Graceful Shutdown, Soft Deletes
+
+## API Structure
+
+The API is divided into two distinct scopes:
+
+1.  **Public / API Key Protected (`/api` prefix)**
+    *   Requires `X-API-Key` header.
+    *   Endpoints: `/api/auth/login`, `/api/auth/register`, `/api/auth/refresh`.
+
+2.  **Protected / JWT (`/` root scope)**
+    *   Requires `Authorization: Bearer <token>` header.
+    *   Endpoints: `/auth/logout`, `/auth/verify`, `/auth/change-password`, `/users/*`, `/tenants/*`.
 
 ## Quick Start
 
@@ -71,6 +84,8 @@ make update           # Update to latest version
 | `make test-e2e-auth` | Run E2E auth tests only |
 | `make test-e2e-users` | Run E2E user tests only |
 | `make test-e2e-details` | Run E2E user details tests only |
+| `make test-e2e-tenants` | Run E2E tenant tests only |
+| `make test-e2e-soft-delete` | Run E2E soft delete tests only |
 | `make migrate-up` | Run database migrations |
 | `make migrate-down` | Rollback last migration |
 | `make migrate-fresh` | Drop all tables and re-run migrations |

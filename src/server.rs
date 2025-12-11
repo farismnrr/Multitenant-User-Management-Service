@@ -124,12 +124,12 @@ pub async fn run_server() -> std::io::Result<()> {
     let db = postgres_connection::initialize().await
         .map_err(|e| std::io::Error::other(format!("Postgres initialization failed: {}", e)))?;
 
-    use crate::repositories::user_repository::{UserRepository, UserRepositoryTrait};
-    use crate::repositories::user_details_repository::{UserDetailsRepository, UserDetailsRepositoryTrait};
-    use crate::repositories::user_session_repository::{UserSessionRepository, UserSessionRepositoryTrait};
-    use crate::repositories::user_activity_log_repository::{UserActivityLogRepository, UserActivityLogRepositoryTrait};
-    use crate::repositories::tenant_repository::{TenantRepository, TenantRepositoryTrait};
-    use crate::repositories::user_tenant_repository::{UserTenantRepository, UserTenantRepositoryTrait};
+    use crate::repositories::user_repository::UserRepository;
+    use crate::repositories::user_details_repository::UserDetailsRepository;
+    use crate::repositories::user_session_repository::UserSessionRepository;
+    use crate::repositories::user_activity_log_repository::UserActivityLogRepository;
+    use crate::repositories::tenant_repository::TenantRepository;
+    use crate::repositories::user_tenant_repository::UserTenantRepository;
     use crate::usecases::user_usecase::UserUseCase;
     use crate::usecases::auth_usecase::AuthUseCase;
     use crate::usecases::user_details_usecase::UserDetailsUseCase;
@@ -138,12 +138,6 @@ pub async fn run_server() -> std::io::Result<()> {
     use crate::routes::auth_routes;
     use crate::routes::tenant_routes;
 
-    let user_repository = UserRepository::new(db.clone());
-    let user_repository: Arc<dyn UserRepositoryTrait> = Arc::new(user_repository);
-    
-    let user_details_repository = UserDetailsRepository::new(db.clone());
-    let user_details_repository: Arc<dyn UserDetailsRepositoryTrait> = Arc::new(user_details_repository);
-    
     let user_repository = Arc::new(UserRepository::new(db.clone()));
     let user_details_repository = Arc::new(UserDetailsRepository::new(db.clone()));
     let user_session_repository = Arc::new(UserSessionRepository::new(db.clone()));

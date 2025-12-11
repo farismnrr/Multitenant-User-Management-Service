@@ -124,6 +124,7 @@ K6_CMD = docker run --rm -i --user "$(shell id -u):$(shell id -g)" --network="ho
 # Run E2E tests only (blackbox)
 test-e2e:
 	@echo "🧪 Running all k6 E2E tests with HTML report..."
+	@mkdir -p coverage
 	@$(K6_CMD) tests/e2e/k6/test-e2e.js
 	@echo "✅ All k6 tests completed. Report generated at coverage/test-e2e.html"
 

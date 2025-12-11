@@ -44,6 +44,7 @@
 import http from 'k6/http';
 import { sleep } from 'k6';
 import { BASE_URL, options, headers } from '../config.js';
+import { getTestTenantId, registerTestUser } from '../helpers.js';
 import {
     randomEmail,
     randomUsername,
@@ -57,7 +58,6 @@ import {
 export { options };
 
 export default function () {
-    const registerUrl = `${BASE_URL}/api/auth/register`;
     const loginUrl = `${BASE_URL}/api/auth/login`;
     const userDetailsUrl = `${BASE_URL}/users/details`;
     const deleteUserUrl = `${BASE_URL}/users`;
@@ -68,15 +68,8 @@ export default function () {
     console.log('Test 1: Create user with details and delete user');
 
     // Create user
-    const testUser = {
-        username: randomUsername(),
-        tenant_id: TENANT_ID,
-        role: "user",
-        email: randomEmail(),
-        password: randomPassword(),
-    };
-
-    http.post(registerUrl, JSON.stringify(testUser), { headers });
+    const tenantId = getTestTenantId();
+    const testUser = registerTestUser(tenantId, 'user');
     sleep(shortSleep());
 
     // Login as user
@@ -131,15 +124,7 @@ export default function () {
      */
     console.log('Test 3: Verify user details are properly isolated after deletion');
 
-    const anotherUser = {
-        username: randomUsername(),
-        tenant_id: TENANT_ID,
-        role: "user",
-        email: randomEmail(),
-        password: randomPassword(),
-    };
-
-    http.post(registerUrl, JSON.stringify(anotherUser), { headers });
+    const anotherUser = registerTestUser(tenantId, 'user');
     sleep(shortSleep());
 
     const anotherLoginPayload = {

@@ -47,6 +47,7 @@
 import http from 'k6/http';
 import { sleep } from 'k6';
 import { BASE_URL, options, headers } from '../config.js';
+import { getTestTenantId, registerTestUser } from '../helpers.js';
 import {
     randomEmail,
     randomUsername,
@@ -60,7 +61,6 @@ import {
 export { options };
 
 export default function () {
-    const registerUrl = `${BASE_URL}/api/auth/register`;
     const loginUrl = `${BASE_URL}/api/auth/login`;
     const getUserUrl = `${BASE_URL}/users`;
     const getAllUsersUrl = `${BASE_URL}/users/all`;
@@ -72,15 +72,8 @@ export default function () {
     console.log('Test 1: Create user, delete it, and verify soft delete');
 
     // Create first user
-    const testUser = {
-        username: randomUsername(),
-        tenant_id: TENANT_ID,
-        role: "user",
-        email: randomEmail(),
-        password: randomPassword(),
-    };
-
-    http.post(registerUrl, JSON.stringify(testUser), { headers });
+    const tenantId = getTestTenantId();
+    const testUser = registerTestUser(tenantId, 'user');
     sleep(shortSleep());
 
     // Login as first user
@@ -124,15 +117,7 @@ export default function () {
     console.log('Test 3: Verify deleted user doesn\'t appear in GET /users/all');
 
     // Create another user to check listings
-    const adminUser = {
-        username: randomUsername(),
-        tenant_id: TENANT_ID,
-        role: "user",
-        email: randomEmail(),
-        password: randomPassword(),
-    };
-
-    http.post(registerUrl, JSON.stringify(adminUser), { headers });
+    const adminUser = registerTestUser(tenantId, 'user');
     sleep(shortSleep());
 
     const adminLoginPayload = {

@@ -82,7 +82,6 @@ import {
 export { options };
 
 export default function () {
-    const registerUrl = `${BASE_URL}/api/auth/register`;
     const loginUrl = `${BASE_URL}/api/auth/login`;
     const createTenantUrl = `${BASE_URL}/tenants`;
 
@@ -90,7 +89,7 @@ export default function () {
     // We need a logged-in user with JWT to access tenant endpoints
     const testUser = {
         username: randomUsername(),
-        tenant_id: TENANT_ID,
+        tenant_id: tenantId,
         role: "user",
         email: randomEmail(),
         password: randomPassword(),

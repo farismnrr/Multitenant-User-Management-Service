@@ -51,7 +51,8 @@
 
 import http from 'k6/http';
 import { sleep } from 'k6';
-import { BASE_URL, options, headers } from '../config.js';
+import { options } from '../config.js';
+import { BASE_URL, API_KEY, getTestTenantId, registerTestUser } from '../helpers.js';
 import {
     randomEmail,
     randomUsername,
@@ -62,28 +63,26 @@ import {
     shortSleep
 } from '../utils.js';
 
+const headers = {
+    'Content-Type': 'application/json',
+    'X-API-Key': API_KEY,
+};
+
 export { options };
 
 export default function () {
-    const registerUrl = `${BASE_URL}/api/auth/register`;
     const loginUrl = `${BASE_URL}/api/auth/login`;
     const verifyUrl = `${BASE_URL}/auth/verify`;
     const deleteUrl = `${BASE_URL}/users`;
 
-    const testUser = {
-        username: randomUsername(),
-        tenant_id: TENANT_ID,
-        role: "user",
-        email: randomEmail(),
-        password: randomPassword(),
-    };
-
-    http.post(registerUrl, JSON.stringify(testUser), { headers });
-    sleep(shortSleep());
+    // Setup: Create tenant and user
+    const tenantId = getTestTenantId();
+    const testUser = registerTestUser(tenantId, 'user');
 
     const loginPayload = {
         email_or_username: testUser.email,
         password: testUser.password,
+        tenant_id: tenantId,
     };
 
     const loginResponse = http.post(loginUrl, JSON.stringify(loginPayload), { headers });

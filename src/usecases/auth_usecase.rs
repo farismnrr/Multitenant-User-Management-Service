@@ -141,22 +141,23 @@ impl AuthUseCase {
             None => {
                 // Assign user to tenant with role
                 self.user_tenant_repository
-                    .add_user_to_tenant(user.id, req.tenant_id, req.role)
+                    .add_user_to_tenant(user.id, req.tenant_id, req.role.clone())
                     .await?;
             }
         }
 
-        // Generate tokens
+        // Generate tokens with tenant context
+        let role = req.role.clone();
         let access_token = self
             .jwt_service
-            .generate_access_token(user.id)
+            .generate_access_token(user.id, req.tenant_id, role.clone())
             .map_err(|e| {
                 AppError::InternalError(format!("Failed to generate access token: {}", e))
             })?;
 
         let _refresh_token = self
             .jwt_service
-            .generate_refresh_token(user.id)
+            .generate_refresh_token(user.id, req.tenant_id, role)
             .map_err(|e| {
                 AppError::InternalError(format!("Failed to generate refresh token: {}", e))
             })?;
@@ -223,8 +224,8 @@ impl AuthUseCase {
             return Err(err);
         }
 
-        // Validate tenant membership
-        let _role = self.user_tenant_repository
+        // Validate tenant membership and get role
+        let role = self.user_tenant_repository
             .get_user_role_in_tenant(user.id, req.tenant_id)
             .await?
             .ok_or_else(|| {
@@ -232,17 +233,17 @@ impl AuthUseCase {
                 err
             })?;
 
-        // Generate tokens
+        // Generate tokens with tenant context
         let access_token = self
             .jwt_service
-            .generate_access_token(user.id)
+            .generate_access_token(user.id, req.tenant_id, role.clone())
             .map_err(|e| {
                 AppError::InternalError(format!("Failed to generate access token: {}", e))
             })?;
 
         let refresh_token = self
             .jwt_service
-            .generate_refresh_token(user.id)
+            .generate_refresh_token(user.id, req.tenant_id, role)
             .map_err(|e| {
                 AppError::InternalError(format!("Failed to generate refresh token: {}", e))
             })?;
@@ -370,6 +371,11 @@ impl AuthUseCase {
         let user_id = uuid::Uuid::parse_str(&claims.sub)
             .map_err(|e| AppError::Unauthorized(format!("Invalid user ID in token: {}", e)))?;
 
+        // Extract tenant context from refresh token
+        let tenant_id = uuid::Uuid::parse_str(&claims.tenant_id)
+            .map_err(|e| AppError::Unauthorized(format!("Invalid tenant ID in token: {}", e)))?;
+        let role = claims.role.clone();
+
         // Verify session exists
         let refresh_token_hash = request_helper::hash_token(refresh_token);
         self.session_repository
@@ -384,10 +390,10 @@ impl AuthUseCase {
             .await?
             .ok_or_else(|| AppError::Unauthorized("User not found".to_string()))?;
 
-        // Generate new access token
+        // Generate new access token with same tenant context
         let new_access_token = self
             .jwt_service
-            .generate_access_token(user_id)
+            .generate_access_token(user_id, tenant_id, role)
             .map_err(|e| {
                 AppError::InternalError(format!("Failed to generate access token: {}", e))
             })?;

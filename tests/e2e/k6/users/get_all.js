@@ -52,7 +52,7 @@ import http from 'k6/http';
 import { sleep } from 'k6';
 import { check } from 'k6';
 import { BASE_URL, options, headers } from '../config.js';
-// ... imports
+import { getTestTenantId, registerTestUser } from '../helpers.js';
 import {
     randomEmail,
     randomUsername,
@@ -66,22 +66,15 @@ import {
 export { options };
 
 export default function () {
-    const registerUrl = `${BASE_URL}/api/auth/register`;
     const loginUrl = `${BASE_URL}/api/auth/login`;
     const getAllUsersUrl = `${BASE_URL}/users/all`;
 
     // Setup: Create multiple test users
+    const tenantId = getTestTenantId();
     const users = [];
     for (let i = 0; i < 3; i++) {
-        const user = {
-            username: randomUsername(),
-        tenant_id: TENANT_ID,
-        role: "user",
-            email: randomEmail(),
-            password: randomPassword(),
-        };
+        const user = registerTestUser(tenantId, 'user');
         users.push(user);
-        http.post(registerUrl, JSON.stringify(user), { headers });
         sleep(shortSleep());
     }
 

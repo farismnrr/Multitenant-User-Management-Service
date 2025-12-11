@@ -41,11 +41,9 @@
 
 import http from 'k6/http';
 import { sleep } from 'k6';
-import { BASE_URL, options, headers } from '../config.js';
+import { options } from '../config.js';
+import { BASE_URL, API_KEY, getTestTenantId, registerTestUser } from '../helpers.js';
 import {
-    randomEmail,
-    randomUsername,
-    randomPassword,
     randomString,
     extractAccessToken,
     checkSuccess,
@@ -53,10 +51,14 @@ import {
     shortSleep
 } from '../utils.js';
 
+const headers = {
+    'Content-Type': 'application/json',
+    'X-API-Key': API_KEY,
+};
+
 export { options };
 
 export default function () {
-    const registerUrl = `${BASE_URL}/api/auth/register`;
     const loginUrl = `${BASE_URL}/api/auth/login`;
     const tenantsUrl = `${BASE_URL}/tenants`;
 
@@ -65,21 +67,14 @@ export default function () {
      */
     console.log('Test 1: Create tenant and soft delete it');
 
-    // Create and login admin user
-    const adminUser = {
-        username: randomUsername(),
-        tenant_id: TENANT_ID,
-        role: "user",
-        email: randomEmail(),
-        password: randomPassword(),
-    };
-
-    http.post(registerUrl, JSON.stringify(adminUser), { headers });
-    sleep(shortSleep());
+    // Setup: Create tenant and user
+    const tenantId = getTestTenantId();
+    const testUser = registerTestUser(tenantId, 'user');
 
     const loginPayload = {
-        email_or_username: adminUser.email,
-        password: adminUser.password,
+        email_or_username: testUser.email,
+        password: testUser.password,
+        tenant_id: tenantId,
     };
 
     let loginResponse = http.post(loginUrl, JSON.stringify(loginPayload), { headers });
@@ -91,7 +86,7 @@ export default function () {
         'Authorization': `Bearer ${accessToken}`,
     };
 
-    // Create a tenant
+    // Create a tenant for deletion test
     const tenantName = `Tenant_${randomString(8)}`;
     const createPayload = {
         name: tenantName,
@@ -102,18 +97,18 @@ export default function () {
     checkSuccess(response, 201, 'Tenant created successfully');
 
     const createdTenant = JSON.parse(response.body).data;
-    const tenantId = createdTenant.id;
-    console.log(`Created tenant with ID: ${tenantId}`);
+    const deleteTenantId = createdTenant.id;
+    console.log(`Created tenant with ID: ${deleteTenantId}`);
     sleep(shortSleep());
 
     // Verify tenant exists
-    response = http.get(`${tenantsUrl}/${tenantId}`, { headers: authHeaders });
+    response = http.get(`${tenantsUrl}/${deleteTenantId}`, { headers: authHeaders });
     checkSuccess(response, 200, 'Tenant retrieved successfully');
     console.log('Tenant exists before deletion');
     sleep(shortSleep());
 
     // Delete the tenant (soft delete)
-    response = http.del(`${tenantsUrl}/${tenantId}`, null, { headers: authHeaders });
+    response = http.del(`${tenantsUrl}/${deleteTenantId}`, null, { headers: authHeaders });
     console.log(`Delete response status: ${response.status}`);
     sleep(shortSleep());
 
@@ -121,7 +116,7 @@ export default function () {
      * Test Case: Verify deleted tenant doesn't appear in GET /tenants/:id
      */
     console.log('Test 2: Verify deleted tenant not found by ID');
-    response = http.get(`${tenantsUrl}/${tenantId}`, { headers: authHeaders });
+    response = http.get(`${tenantsUrl}/${deleteTenantId}`, { headers: authHeaders });
     checkError(response, 404, 'not found');
     console.log('Deleted tenant NOT found by ID - PASSED');
     sleep(shortSleep());
@@ -134,7 +129,7 @@ export default function () {
     checkSuccess(response, 200, 'Tenants retrieved successfully');
 
     const allTenants = JSON.parse(response.body).data;
-    const deletedTenantExists = allTenants.some(t => t.id === tenantId);
+    const deletedTenantExists = allTenants.some(t => t.id === deleteTenantId);
 
     if (!deletedTenantExists) {
         console.log('Deleted tenant NOT in /tenants - PASSED');
@@ -147,7 +142,7 @@ export default function () {
      * Test Case: Try to delete already deleted tenant (idempotent)
      */
     console.log('Test 4: Delete already deleted tenant (should return 404)');
-    response = http.del(`${tenantsUrl}/${tenantId}`, null, { headers: authHeaders });
+    response = http.del(`${tenantsUrl}/${deleteTenantId}`, null, { headers: authHeaders });
     checkError(response, 404, 'not found');
     console.log('Cannot delete already deleted tenant - PASSED');
     sleep(shortSleep());

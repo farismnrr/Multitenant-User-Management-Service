@@ -61,14 +61,13 @@ import {
 export { options };
 
 export default function () {
-    const registerUrl = `${BASE_URL}/api/auth/register`;
     const loginUrl = `${BASE_URL}/api/auth/login`;
     const detailsUrl = `${BASE_URL}/users/details`;
 
     // Setup: Create a test user
     const testUser = {
         username: randomUsername(),
-        tenant_id: TENANT_ID,
+        tenant_id: tenantId,
         role: "user",
         email: randomEmail(),
         password: randomPassword(),

@@ -55,7 +55,7 @@
 import http from 'k6/http';
 import { sleep } from 'k6';
 import { BASE_URL, options, headers } from '../config.js';
-// ... imports
+import { getTestTenantId, registerTestUser } from '../helpers.js';
 import {
     randomEmail,
     randomUsername,
@@ -70,30 +70,14 @@ import {
 export { options };
 
 export default function () {
-    const registerUrl = `${BASE_URL}/api/auth/register`;
     const loginUrl = `${BASE_URL}/api/auth/login`;
     const updateUserUrl = `${BASE_URL}/users`;
 
     // Setup: Create two test users
-    const testUser1 = {
-        username: randomUsername(),
-        tenant_id: TENANT_ID,
-        role: "user",
-        email: randomEmail(),
-        password: randomPassword(),
-    };
-
-    const testUser2 = {
-        username: randomUsername(),
-        tenant_id: TENANT_ID,
-        role: "user",
-        email: randomEmail(),
-        password: randomPassword(),
-    };
-
-    http.post(registerUrl, JSON.stringify(testUser1), { headers });
+    const tenantId = getTestTenantId();
+    const testUser1 = registerTestUser(tenantId, 'user');
     sleep(shortSleep());
-    http.post(registerUrl, JSON.stringify(testUser2), { headers });
+    const testUser2 = registerTestUser(tenantId, 'user');
     sleep(shortSleep());
 
     // Login with first user
@@ -125,7 +109,7 @@ export default function () {
     console.log('Test 1: Successful update with valid data');
     const updatePayload = {
         username: randomUsername(),
-        tenant_id: TENANT_ID,
+        tenant_id: tenantId,
         role: "user",
         email: randomEmail(),
     };
@@ -151,7 +135,7 @@ export default function () {
     console.log('Test 2: Partial update (only username)');
     const partialUpdate = {
         username: randomUsername(),
-        tenant_id: TENANT_ID,
+        tenant_id: tenantId,
         role: "user",
     };
 

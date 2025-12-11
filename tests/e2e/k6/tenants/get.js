@@ -67,6 +67,7 @@
 import http from 'k6/http';
 import { sleep } from 'k6';
 import { BASE_URL, options, headers } from '../config.js';
+import { getTestTenantId, registerTestUser } from '../helpers.js';
 import {
     randomEmail,
     randomUsername,
@@ -81,21 +82,13 @@ import {
 export { options };
 
 export default function () {
-    const registerUrl = `${BASE_URL}/api/auth/register`;
     const loginUrl = `${BASE_URL}/api/auth/login`;
     const tenantsUrl = `${BASE_URL}/tenants`;
 
     // Setup: Create and login a test user
-    // We need JWT authentication to access tenant endpoints
-    const testUser = {
-        username: randomUsername(),
-        tenant_id: TENANT_ID,
-        role: "user",
-        email: randomEmail(),
-        password: randomPassword(),
-    };
-
-    http.post(registerUrl, JSON.stringify(testUser), { headers });
+    // JWT authentication is required for all tenant operations
+    const tenantId = getTestTenantId();
+    const testUser = registerTestUser(tenantId, 'user');
     sleep(shortSleep());
 
     const loginPayload = {
@@ -122,7 +115,7 @@ export default function () {
 
     const createResponse = http.post(tenantsUrl, JSON.stringify(createPayload), { headers: authHeaders });
     const createdTenant = JSON.parse(createResponse.body).data;
-    const tenantId = createdTenant.id;
+    const createdTenantId = createdTenant.id;
     sleep(shortSleep());
 
     /**
@@ -140,7 +133,7 @@ export default function () {
      * Test Case: Get tenant by ID
      */
     console.log('Test 2: Get tenant by ID with valid JWT');
-    const getTenantUrl = `${tenantsUrl}/${tenantId}`;
+    const getTenantUrl = `${tenantsUrl}/${createdTenantId}`;
     response = http.get(getTenantUrl, { headers: authHeaders });
     checkSuccess(response, 200, 'Tenant retrieved successfully');
 

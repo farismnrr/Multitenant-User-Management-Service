@@ -50,7 +50,7 @@ import http from 'k6/http';
 import { sleep } from 'k6';
 import { FormData } from 'https://jslib.k6.io/formdata/0.0.2/index.js';
 import { BASE_URL, options, headers } from '../config.js';
-// ... imports
+import { getTestTenantId, registerTestUser } from '../helpers.js';
 import {
     randomEmail,
     randomUsername,
@@ -68,20 +68,12 @@ const pngData = open('../../../assets/normal.png', 'b');
 const largeData = open('../../../assets/large.jpeg', 'b');
 
 export default function () {
-    const registerUrl = `${BASE_URL}/api/auth/register`;
     const loginUrl = `${BASE_URL}/api/auth/login`;
     const uploadUrl = `${BASE_URL}/users/uploads`;
 
     // Setup: Create a test user
-    const testUser = {
-        username: randomUsername(),
-        tenant_id: TENANT_ID,
-        role: "user",
-        email: randomEmail(),
-        password: randomPassword(),
-    };
-
-    http.post(registerUrl, JSON.stringify(testUser), { headers });
+    const tenantId = getTestTenantId();
+    const testUser = registerTestUser(tenantId, 'user');
     sleep(shortSleep());
 
     // Login

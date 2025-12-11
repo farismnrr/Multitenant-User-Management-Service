@@ -1,4 +1,4 @@
-use crate::entities::{user_tenant, tenant, user};
+use crate::entities::user_tenant;
 use crate::errors::AppError;
 use async_trait::async_trait;
 use sea_orm::*;

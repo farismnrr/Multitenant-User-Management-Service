@@ -2,17 +2,30 @@ import http from 'k6/http';
 import { check } from 'k6';
 
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:5500';
-const API_KEY = __ENV.API_KEY || 'test-api-key-12345';
+const API_KEY = __ENV.API_KEY || 'your-api-key-for-endpoint-protection';
+
+// Use a fixed test tenant ID for all tests
+// This tenant should be created manually or via setup script
+const TEST_TENANT_ID = '00000000-0000-0000-0000-000000000001';
 
 /**
- * Creates a test tenant and returns the tenant ID
+ * Returns the test tenant ID
+ * @returns {string} Tenant ID
+ */
+export function getTestTenantId() {
+    return TEST_TENANT_ID;
+}
+
+/**
+ * Creates a test tenant (requires JWT auth)
+ * @param {string} accessToken - JWT access token
  * @param {string} tenantName - Name of the tenant
  * @returns {string} Tenant ID
  */
-export function createTestTenant(tenantName) {
+export function createTestTenantWithAuth(accessToken, tenantName) {
     const headers = {
         'Content-Type': 'application/json',
-        'X-API-Key': API_KEY,
+        'Authorization': `Bearer ${accessToken}`,
     };
 
     const payload = {
@@ -42,7 +55,7 @@ export function createTestTenant(tenantName) {
  * Registers a test user and returns auth data
  * @param {string} tenantId - Tenant ID
  * @param {string} role - User role (default: 'user')
- * @returns {object} { userId, accessToken, email, password }
+ * @returns {object} { userId, accessToken, email, password, username }
  */
 export function registerTestUser(tenantId, role = 'user') {
     const headers = {
@@ -87,4 +100,4 @@ export function registerTestUser(tenantId, role = 'user') {
     throw new Error(`Failed to register user: ${response.status} - ${response.body}`);
 }
 
-export { BASE_URL, API_KEY };
+export { BASE_URL, API_KEY, TEST_TENANT_ID };

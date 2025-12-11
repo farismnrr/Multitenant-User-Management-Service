@@ -57,26 +57,27 @@ export const options = {
 };
 
 // Export test functions
-export function authRegister() { authRegisterTest.default(); }
-export function authLogin() { authLoginTest.default(); }
-export function authLogout() { authLogoutTest.default(); }
-export function authRefresh() { authRefreshTest.default(); }
-export function authVerify() { authVerifyTest.default(); }
+export function authRegister() { authRegisterTest(); }
+export function authLogin() { authLoginTest(); }
+export function authLogout() { authLogoutTest(); }
+export function authRefresh() { authRefreshTest(); }
+export function authVerify() { authVerifyTest(); }
 
-export function usersGet() { usersGetTest.default(); }
-export function usersGetAll() { usersGetAllTest.default(); }
-export function usersUpdate() { usersUpdateTest.default(); }
-export function usersSoftDelete() { usersSoftDeleteTest.default(); }
+export function usersGet() { usersGetTest(); }
+export function usersGetAll() { usersGetAllTest(); }
+export function usersUpdate() { usersUpdateTest(); }
+export function usersSoftDelete() { usersSoftDeleteTest(); }
 
-export function userDetailsUpdate() { userDetailsUpdateTest.default(); }
-export function userDetailsUpload() { userDetailsUploadTest.default(); }
-export function userDetailsSoftDelete() { userDetailsSoftDeleteTest.default(); }
+export function userDetailsUpdate() { userDetailsUpdateTest(); }
+export function userDetailsUpload() { userDetailsUploadTest(); }
+export function userDetailsSoftDelete() { userDetailsSoftDeleteTest(); }
 
-export function tenantsCreate() { tenantsCreateTest.default(); }
-export function tenantsGet() { tenantsGetTest.default(); }
-export function tenantsUpdate() { tenantsUpdateTest.default(); }
-export function tenantsSoftDelete() { tenantsSoftDeleteTest.default(); }
+export function tenantsCreate() { tenantsCreateTest(); }
+export function tenantsGet() { tenantsGetTest(); }
+export function tenantsUpdate() { tenantsUpdateTest(); }
+export function tenantsSoftDelete() { tenantsSoftDeleteTest(); }
 
+// Generate HTML report
 export function handleSummary(data) {
     return {
         "coverage/test-e2e.html": htmlReport(data),

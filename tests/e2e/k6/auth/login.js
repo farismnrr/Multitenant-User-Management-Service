@@ -58,7 +58,7 @@
 
 import http from 'k6/http';
 import { sleep } from 'k6';
-import { BASE_URL, headers, options } from '../config.js';
+import { options } from '../config.js';
 import {
     randomEmail,
     randomUsername,
@@ -69,34 +69,21 @@ import {
     checkError,
     shortSleep
 } from '../utils.js';
+import { BASE_URL, API_KEY, getTestTenantId, registerTestUser } from '../helpers.js';
+
+const headers = {
+    'Content-Type': 'application/json',
+    'X-API-Key': API_KEY,
+};
 
 export { options };
 
 export default function () {
-    const registerUrl = `${BASE_URL}/api/auth/register`;
     const loginUrl = `${BASE_URL}/api/auth/login`;
 
-    // Setup: Create a test user first
-    const testUser = {
-        username: randomUsername(),
-        tenant_id: TENANT_ID,
-        role: "user",
-        email: randomEmail(),
-        password: randomPassword(),
-    };
-
-    /**
-     * Setup: Create a test user
-     * URL: {apiUrl}/api/auth/register
-     * Auth: X-API-Key
-     * Expected: {
-     *   "success": true,
-     *   "message": "User registered successfully",
-     *   "data": { "id": "...", "access_token": "..." }
-     * }
-     */
-    http.post(registerUrl, JSON.stringify(testUser), { headers });
-    sleep(shortSleep());
+    // Setup: Create tenant and test user
+    const tenantId = getTestTenantId();
+    const testUser = registerTestUser(tenantId, 'user');
 
     /**
      * Test Case: Successful login with email
@@ -113,6 +100,7 @@ export default function () {
     const loginWithEmail = {
         email_or_username: testUser.email,
         password: testUser.password,
+        tenant_id: tenantId,
     };
 
     let response = http.post(loginUrl, JSON.stringify(loginWithEmail), { headers });
@@ -139,6 +127,7 @@ export default function () {
     const loginWithUsername = {
         email_or_username: testUser.username,
         password: testUser.password,
+        tenant_id: tenantId,
     };
 
     response = http.post(loginUrl, JSON.stringify(loginWithUsername), { headers });
@@ -159,6 +148,7 @@ export default function () {
     const wrongPassword = {
         email_or_username: testUser.email,
         password: 'WrongPassword123!',
+        tenant_id: tenantId,
     };
 
     response = http.post(loginUrl, JSON.stringify(wrongPassword), { headers });
@@ -179,6 +169,7 @@ export default function () {
     const nonExistentUser = {
         email_or_username: 'nonexistent@example.com',
         password: randomPassword(),
+        tenant_id: tenantId,
     };
 
     response = http.post(loginUrl, JSON.stringify(nonExistentUser), { headers });
@@ -217,7 +208,8 @@ export default function () {
     console.log('Test 6: Invalid email format');
     const invalidEmail = {
         email_or_username: 'invalid-email',
-        password: testUser.password,
+        password: randomPassword(),
+        tenant_id: tenantId,
     };
 
     response = http.post(loginUrl, JSON.stringify(invalidEmail), { headers });
