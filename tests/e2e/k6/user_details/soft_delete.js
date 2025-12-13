@@ -44,12 +44,13 @@
 import http from 'k6/http';
 import { sleep } from 'k6';
 import { BASE_URL, options, headers } from '../config.js';
-import { getTestTenantId, registerTestUser } from '../helpers.js';
+import { getTestTenantId } from '../utils.js';
 import {
     extractAccessToken,
     checkSuccess,
     checkError,
-    shortSleep
+    shortSleep,
+    registerTestUser
 } from '../utils.js';
 
 export { options };
@@ -71,17 +72,15 @@ export default function () {
      * }
      * Note: Deleting user also soft deletes associated user_details
      */
-    console.log('Test 1: Create user with details and delete user');
 
-    // Create user
+    // Setup: Create and login a test user
     const tenantId = getTestTenantId();
     const testUser = registerTestUser(tenantId, 'user');
-    sleep(shortSleep());
 
-    // Login as user
     const loginPayload = {
         email_or_username: testUser.email,
         password: testUser.password,
+        tenant_id: tenantId,
     };
 
     let loginResponse = http.post(loginUrl, JSON.stringify(loginPayload), { headers });
@@ -101,8 +100,8 @@ export default function () {
     };
 
     let response = http.put(userDetailsUrl, JSON.stringify(detailsPayload), { headers: authHeaders });
-    checkSuccess(response, 200, 'User details updated successfully');
-    console.log('User details created');
+    checkSuccess(response, 200, 'User details updated successfully', 'Setup: Create user details');
+    // console.log('User details created');
     sleep(shortSleep());
 
     // Verify user details exist
@@ -113,7 +112,7 @@ export default function () {
 
     // Delete the user (soft delete)
     response = http.del(deleteUserUrl, null, { headers: authHeaders });
-    console.log(`User delete response status: ${response.status}`);
+    checkSuccess(response, 200, 'User deleted successfully', 'Test 1: Create user with details and delete user');
     sleep(shortSleep());
 
     /**
@@ -126,9 +125,8 @@ export default function () {
      *   "message": "Invalid credentials"
      * }
      */
-    console.log('Test 2: Verify deleted user cannot login');
     loginResponse = http.post(loginUrl, JSON.stringify(loginPayload), { headers });
-    checkError(loginResponse, 401);
+    checkError(loginResponse, 401, null, 'Test 2: Verify deleted user cannot login');
     console.log('Deleted user cannot login - PASSED');
     sleep(shortSleep());
 
@@ -143,7 +141,6 @@ export default function () {
      *   "data": null or { ... } // Should NOT return deleted user's details
      * }
      */
-    console.log('Test 3: Create another user and verify no data leakage');
 
     // Create another user
     const newUser = registerTestUser(tenantId, 'user');

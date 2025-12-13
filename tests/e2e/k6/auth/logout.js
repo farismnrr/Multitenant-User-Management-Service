@@ -45,11 +45,13 @@
 import http from 'k6/http';
 import { sleep } from 'k6';
 import { options } from '../config.js';
-import { BASE_URL, API_KEY, getTestTenantId, registerTestUser } from '../helpers.js';
+import { BASE_URL, API_KEY } from '../config.js';
+import { getTestTenantId } from '../utils.js';
 import {
     checkSuccess,
     checkError,
-    shortSleep
+    shortSleep,
+    registerTestUser
 } from '../utils.js';
 
 const headers = {
@@ -89,13 +91,8 @@ export default function () {
      *   "data": null
      * }
      */
-    console.log('Test 1: Successful logout with valid JWT');
-    const authHeaders = {
-        ...headers,
-        'Authorization': `Bearer ${accessToken}`,
-    };
     let response = http.post(logoutUrl, null, { headers: authHeaders });
-    checkSuccess(response, 200, 'Logged out successfully');
+    checkSuccess(response, 200, 'Logged out successfully', 'Test 1: Successful logout with valid JWT');
     sleep(shortSleep());
 
     /**
@@ -108,10 +105,8 @@ export default function () {
      *   "message": "Missing authentication token"
      * }
      */
-    console.log('Test 2: Logout without JWT token');
     response = http.post(logoutUrl, null, { headers });
-    response = http.post(logoutUrl, null, { headers });
-    checkError(response, 401);
+    checkError(response, 401, null, 'Test 2: Logout without JWT token');
     sleep(shortSleep());
 
     /**
@@ -124,13 +119,8 @@ export default function () {
      *   "message": "Invalid token"
      * }
      */
-    console.log('Test 3: Logout with invalid JWT token');
-    const invalidAuthHeaders = {
-        ...headers,
-        'Authorization': 'Bearer invalid_token_here',
-    };
     response = http.post(logoutUrl, null, { headers: invalidAuthHeaders });
-    checkError(response, 401);
+    checkError(response, 401, null, 'Test 3: Logout with invalid JWT token');
     sleep(shortSleep());
 
     /**
@@ -144,20 +134,7 @@ export default function () {
      *   "data": null
      * }
      */
-    console.log('Test 4: Missing API key (should still work with JWT)');
-
-    // Need to login again to get fresh refresh token cookie since Test 1 cleared it
-    const loginResponse2 = http.post(loginUrl, JSON.stringify(loginPayload), { headers });
-    const loginData2 = JSON.parse(loginResponse2.body);
-    const accessToken2 = loginData2.data.access_token;
-    sleep(shortSleep());
-
-    const noApiKeyHeaders = {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken2}`,
-    };
-
     response = http.post(logoutUrl, null, { headers: noApiKeyHeaders });
-    checkSuccess(response, 200, 'Logged out successfully');
+    checkSuccess(response, 200, 'Logged out successfully', 'Test 4: Missing API key (should still work with JWT)');
     sleep(shortSleep());
 }

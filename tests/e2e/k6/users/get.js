@@ -59,12 +59,13 @@
 import http from 'k6/http';
 import { sleep } from 'k6';
 import { BASE_URL, options, headers } from '../config.js';
-import { getTestTenantId, registerTestUser } from '../helpers.js';
+import { getTestTenantId } from '../utils.js';
 import {
     extractAccessToken,
     checkSuccess,
     checkError,
-    shortSleep
+    shortSleep,
+    registerTestUser
 } from '../utils.js';
 
 export { options };
@@ -97,14 +98,12 @@ export default function () {
      *   "data": { "id": "...", "username": "...", ... }
      * }
      */
-    console.log('Test 1: Get current user with valid JWT');
     const validHeaders = {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${accessToken}`,
     };
-
     let response = http.get(getUserUrl, { headers: validHeaders });
-    checkSuccess(response, 200);
+    checkSuccess(response, 200, null, 'Test 1: Get current user with valid JWT');
 
     // Verify user data is correct
     const body = JSON.parse(response.body);
@@ -122,14 +121,12 @@ export default function () {
      *   "message": "Missing authentication token"
      * }
      */
-    console.log('Test 2: Get without JWT');
     const noAuthHeaders = {
         'Content-Type': 'application/json',
     };
-
     response = http.get(getUserUrl, { headers: noAuthHeaders });
     response = http.get(getUserUrl, { headers: noAuthHeaders });
-    checkError(response, 401);
+    checkError(response, 401, null, 'Test 2: Get without JWT');
     sleep(shortSleep());
 
     /**
@@ -142,14 +139,12 @@ export default function () {
      *   "message": "Invalid token"
      * }
      */
-    console.log('Test 3: Get with invalid JWT');
     const invalidJwtHeaders = {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer invalid_token_here',
     };
-
     response = http.get(getUserUrl, { headers: invalidJwtHeaders });
-    checkError(response, 401);
+    checkError(response, 401, null, 'Test 3: Get with invalid JWT');
     sleep(shortSleep());
 
     /**
@@ -162,13 +157,11 @@ export default function () {
      *   "message": "Invalid token"
      * }
      */
-    console.log('Test 4: Get with malformed JWT');
     const malformedJwtHeaders = {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.malformed.signature',
     };
-
     response = http.get(getUserUrl, { headers: malformedJwtHeaders });
-    checkError(response, 401);
+    checkError(response, 401, null, 'Test 4: Get with malformed JWT');
     sleep(shortSleep());
 }

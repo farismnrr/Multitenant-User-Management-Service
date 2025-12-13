@@ -1,9 +1,10 @@
-//! HTTP//! Middleware Layer
+//! Middleware modules for request processing.
 //!
-//! This module contains middleware components for request/response processing.
-//! Middlewares handle cross-cutting concerns like authentication, logging, and API key validation.
+//! This module contains middleware for authentication, logging, and other
+//! cross-cutting concerns.
 
-pub mod api_key;
-pub mod logger_request;
-pub mod powered_by;
-pub mod auth;
+pub mod api_key_middleware;
+pub mod auth_middleware;
+pub mod request_logger_middleware;
+pub mod powered_by_middleware;
+pub mod tenant_secret_middleware;

@@ -55,7 +55,7 @@
 import http from 'k6/http';
 import { sleep } from 'k6';
 import { BASE_URL, options, headers } from '../config.js';
-import { getTestTenantId, registerTestUser } from '../helpers.js';
+import { getTestTenantId } from '../utils.js';
 import {
     randomEmail,
     randomUsername,
@@ -63,7 +63,8 @@ import {
     extractUserId,
     checkSuccess,
     checkError,
-    shortSleep
+    shortSleep,
+    registerTestUser
 } from '../utils.js';
 
 export { options };
@@ -105,16 +106,14 @@ export default function () {
      *   "data": { "id": "uuid" }
      * }
      */
-    console.log('Test 1: Successful update with valid data');
     const updatePayload = {
         username: randomUsername(),
         tenant_id: tenantId,
         role: "user",
         email: randomEmail(),
     };
-
     let response = http.put(updateUserUrl, JSON.stringify(updatePayload), { headers: validHeaders });
-    checkSuccess(response, 200, 'updated successfully');
+    checkSuccess(response, 200, 'updated successfully', 'Test 1: Successful update with valid data');
 
     const userId = extractUserId(response);
     console.log(`User ID returned: ${userId ? 'Yes' : 'No'}`);
@@ -131,15 +130,13 @@ export default function () {
      *   "data": { "id": "uuid" }
      * }
      */
-    console.log('Test 2: Partial update (only username)');
     const partialUpdate = {
         username: randomUsername(),
         tenant_id: tenantId,
         role: "user",
     };
-
     response = http.put(updateUserUrl, JSON.stringify(partialUpdate), { headers: validHeaders });
-    checkSuccess(response, 200);
+    checkSuccess(response, 200, null, 'Test 2: Partial update (only username)');
     sleep(shortSleep());
 
     /**
@@ -152,13 +149,11 @@ export default function () {
      *   "message": "Email already exists"
      * }
      */
-    console.log('Test 3: Update with duplicate email');
     const duplicateEmailUpdate = {
         email: testUser2.email, // Email from second user
     };
-
     response = http.put(updateUserUrl, JSON.stringify(duplicateEmailUpdate), { headers: validHeaders });
-    checkError(response, 409, 'email');
+    checkError(response, 409, 'email', 'Test 3: Update with duplicate email');
     sleep(shortSleep());
 
     /**
@@ -171,13 +166,11 @@ export default function () {
      *   "message": "Username already exists"
      * }
      */
-    console.log('Test 4: Update with duplicate username');
     const duplicateUsernameUpdate = {
         username: testUser2.username, // Username from second user
     };
-
     response = http.put(updateUserUrl, JSON.stringify(duplicateUsernameUpdate), { headers: validHeaders });
-    checkError(response, 409, 'username');
+    checkError(response, 409, 'username', 'Test 4: Update with duplicate username');
     sleep(shortSleep());
 
     /**
@@ -190,13 +183,11 @@ export default function () {
      *   "message": "Missing authentication token"
      * }
      */
-    console.log('Test 5: Update without JWT');
     const noAuthHeaders = {
         'Content-Type': 'application/json',
     };
-
     response = http.put(updateUserUrl, JSON.stringify(updatePayload), { headers: noAuthHeaders });
-    checkError(response, 401);
+    checkError(response, 401, null, 'Test 5: Update without JWT');
     sleep(shortSleep());
 
     /**
@@ -209,13 +200,11 @@ export default function () {
      *   "message": "Invalid email format"
      * }
      */
-    console.log('Test 6: Update with invalid email format');
     const invalidEmailUpdate = {
         email: 'invalid-email-format',
     };
-
     response = http.put(updateUserUrl, JSON.stringify(invalidEmailUpdate), { headers: validHeaders });
-    checkError(response, 422);
+    checkError(response, 422, null, 'Test 6: Update with invalid email format');
     sleep(shortSleep());
 
     /**
@@ -228,12 +217,10 @@ export default function () {
      *   "message": "Invalid data type"
      * }
      */
-    console.log('Test 7: Update with invalid data types');
     const invalidDataUpdate = {
         username: 12345, // Should be string
     };
-
     response = http.put(updateUserUrl, JSON.stringify(invalidDataUpdate), { headers: validHeaders });
-    checkError(response, 400); // Json deserialize error is 400
+    checkError(response, 400, null, 'Test 7: Update with invalid data types'); // Json deserialize error is 400
     sleep(shortSleep());
 }

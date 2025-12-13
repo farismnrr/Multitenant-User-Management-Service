@@ -61,6 +61,7 @@ impl UserSessionRepositoryTrait for UserSessionRepository {
         expires_at: DateTime<Utc>,
     ) -> Result<UserSession, AppError> {
         let session = user_session::ActiveModel {
+            id: Set(Uuid::new_v4()),  // Generate UUID in repository
             user_id: Set(user_id),
             refresh_token_hash: Set(refresh_token_hash),
             user_agent: Set(user_agent),

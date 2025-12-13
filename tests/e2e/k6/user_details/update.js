@@ -55,13 +55,14 @@
 import http from 'k6/http';
 import { sleep } from 'k6';
 import { BASE_URL, options, headers } from '../config.js';
-import { getTestTenantId, registerTestUser } from '../helpers.js';
+import { getTestTenantId } from '../utils.js';
 import {
     extractAccessToken,
     extractUserId,
     checkSuccess,
     checkError,
-    shortSleep
+    shortSleep,
+    registerTestUser
 } from '../utils.js';
 
 export { options };
@@ -101,16 +102,14 @@ export default function () {
     *   "data": { "id": "uuid" }
     * }
     */
-    console.log('Test 1: Successful update with valid data');
     const updatePayload = {
         full_name: 'John Doe',
         phone_number: '+1234567890',
         address: '123 Main St, City, Country',
         date_of_birth: '1990-01-15',
     };
-
     let response = http.put(updateDetailsUrl, JSON.stringify(updatePayload), { headers: validHeaders });
-    checkSuccess(response, 200, 'updated successfully');
+    checkSuccess(response, 200, 'updated successfully', 'Test 1: Successful update with valid data');
 
     const userId = extractUserId(response);
     console.log(`User ID returned: ${userId ? 'Yes' : 'No'}`);
@@ -127,13 +126,11 @@ export default function () {
     *   "data": { "id": "uuid" }
     * }
     */
-    console.log('Test 2: Partial update (only full_name)');
     const partialUpdate = {
         full_name: 'Jane Smith',
     };
-
     response = http.put(updateDetailsUrl, JSON.stringify(partialUpdate), { headers: validHeaders });
-    checkSuccess(response, 200);
+    checkSuccess(response, 200, null, 'Test 2: Partial update (only full_name)');
     sleep(shortSleep());
 
     /**
@@ -147,14 +144,12 @@ export default function () {
     *   "data": { "id": "uuid" }
     * }
     */
-    console.log('Test 3: Update with null values');
     const nullUpdate = {
         phone_number: null,
         address: null,
     };
-
     response = http.put(updateDetailsUrl, JSON.stringify(nullUpdate), { headers: validHeaders });
-    checkSuccess(response, 200);
+    checkSuccess(response, 200, null, 'Test 3: Update with null values');
     sleep(shortSleep());
 
     /**
@@ -167,14 +162,11 @@ export default function () {
     *   "message": "Missing authentication token"
     * }
     */
-    console.log('Test 4: Update without JWT');
     const noAuthHeaders = {
         'Content-Type': 'application/json',
     };
-
     response = http.put(updateDetailsUrl, JSON.stringify(updatePayload), { headers: noAuthHeaders });
-    response = http.put(updateDetailsUrl, JSON.stringify(updatePayload), { headers: noAuthHeaders });
-    checkError(response, 401);
+    checkError(response, 401, null, 'Test 4: Update without JWT');
     sleep(shortSleep());
 
     /**
@@ -187,14 +179,12 @@ export default function () {
     *   "message": "Invalid input data"
     * }
     */
-    console.log('Test 5: Update with invalid data types');
     const invalidDataUpdate = {
         full_name: 12345, // Should be string
         phone_number: true, // Should be string
     };
-
     response = http.put(updateDetailsUrl, JSON.stringify(invalidDataUpdate), { headers: validHeaders });
-    checkError(response, 400);
+    checkError(response, 400, null, 'Test 5: Update with invalid data types');
     sleep(shortSleep());
 
     /**
@@ -207,13 +197,11 @@ export default function () {
     *   "message": "Invalid date format"
     * }
     */
-    console.log('Test 6: Update with invalid date format');
     const invalidDateUpdate = {
         date_of_birth: 'invalid-date',
     };
-
     response = http.put(updateDetailsUrl, JSON.stringify(invalidDateUpdate), { headers: validHeaders });
-    checkError(response, 400);
+    checkError(response, 400, null, 'Test 6: Update with invalid date format');
     sleep(shortSleep());
 
     /**
@@ -226,13 +214,12 @@ export default function () {
     *   "message": "Date of birth cannot be in the future"
     * }
     */
-    console.log('Test 7: Update with future date of birth');
     const futureDateUpdate = {
         date_of_birth: '2099-12-31',
     };
-
     response = http.put(updateDetailsUrl, JSON.stringify(futureDateUpdate), { headers: validHeaders });
     // This might succeed or fail depending on validation - just check response
     console.log(`Future date response status: ${response.status}`);
+    checkError(response, 400, null, 'Test 7: Update with future date of birth');
     sleep(shortSleep());
 }

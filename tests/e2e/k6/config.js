@@ -10,6 +10,9 @@ export const BASE_URL = __ENV.BASE_URL || 'http://localhost:5500';
 // API Key for authentication (required for auth endpoints)
 export const API_KEY = __ENV.API_KEY || 'your-api-key-for-endpoint-protection';
 
+// Tenant Secret Key for tenant creation (bootstrapping)
+export const TENANT_SECRET_KEY = __ENV.TENANT_SECRET_KEY || 'your-tenant-secret-key-for-bootstrapping';
+
 // Default test options
 export const options = {
     vus: 1,
@@ -30,5 +33,14 @@ export function authHeader(token) {
     return {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
+    };
+}
+
+// Tenant Secret header (for tenant creation)
+export function tenantSecretHeader() {
+    return {
+        'Content-Type': 'application/json',
+        'X-API-Key': API_KEY,
+        'X-Tenant-Secret-Key': TENANT_SECRET_KEY,
     };
 }

@@ -119,7 +119,7 @@ test-integration:
 	cargo test --test integration_tests -- --test-threads=1
 
 # K6 command for E2E tests
-K6_CMD = docker run --rm -i --user "$(shell id -u):$(shell id -g)" --network="host" -v $(PWD):/scripts -w /scripts grafana/k6 run
+K6_CMD = docker run --rm -i --user "$(shell id -u):$(shell id -g)" --network="host" -v $(PWD):/scripts -w /scripts grafana/k6 run --quiet --console-output=/dev/stdout --log-output=none --log-format=raw
 
 # Run E2E tests only (blackbox)
 test-e2e:
@@ -160,7 +160,7 @@ test-e2e-tenants:
 	@$(K6_CMD) tests/e2e/k6/tenants/create.js
 	@$(K6_CMD) tests/e2e/k6/tenants/get.js
 	@$(K6_CMD) tests/e2e/k6/tenants/update.js
-	@$(K6_CMD) tests/e2e/k6/tenants/delete.js
+	@$(K6_CMD) tests/e2e/k6/tenants/soft_delete.js
 	@echo "✅ Tenant tests completed"
 
 # E2E soft delete tests only

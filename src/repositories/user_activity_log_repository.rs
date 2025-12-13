@@ -55,6 +55,7 @@ impl UserActivityLogRepositoryTrait for UserActivityLogRepository {
         user_agent: Option<String>,
     ) -> Result<UserActivityLog, AppError> {
         let log = user_activity_log::ActiveModel {
+            id: Set(Uuid::new_v4()),  // Generate UUID in repository
             user_id: Set(user_id),
             activity_type: Set(activity_type),
             status: Set(status),

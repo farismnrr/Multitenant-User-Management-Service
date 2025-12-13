@@ -67,30 +67,31 @@
 import http from 'k6/http';
 import { sleep } from 'k6';
 import { BASE_URL, options, headers } from '../config.js';
-import { getTestTenantId, registerTestUser } from '../helpers.js';
+import { getTestTenantId } from '../utils.js';
 import {
     randomString,
     extractAccessToken,
     checkSuccess,
     checkError,
-    shortSleep
+    shortSleep,
+    registerTestUser
 } from '../utils.js';
 
 export { options };
 
 export default function () {
     const loginUrl = `${BASE_URL}/api/auth/login`;
-    const tenantsUrl = `${BASE_URL}/tenants`;
+    const tenantsUrl = `${BASE_URL}/api/tenants`;
 
     // Setup: Create and login a test user
-    // JWT authentication is required for all tenant operations
+    // We need a logged-in user with JWT to access tenant endpoints
     const tenantId = getTestTenantId();
     const testUser = registerTestUser(tenantId, 'user');
-    sleep(shortSleep());
 
     const loginPayload = {
         email_or_username: testUser.email,
         password: testUser.password,
+        tenant_id: tenantId,
     };
 
     const loginResponse = http.post(loginUrl, JSON.stringify(loginPayload), { headers });
@@ -126,9 +127,8 @@ export default function () {
      *   "data": [ {...}, {...}, ... ]
      * }
      */
-    console.log('Test 1: Get all tenants with valid JWT');
     let response = http.get(tenantsUrl, { headers: authHeaders });
-    checkSuccess(response, 200, 'Tenants retrieved successfully');
+    checkSuccess(response, 200, 'Tenants retrieved successfully', 'Test 1: Get all tenants with valid JWT');
 
     const allTenants = JSON.parse(response.body).data;
     console.log(`Number of tenants: ${allTenants.length}`);
@@ -145,10 +145,9 @@ export default function () {
      *   "data": { "id": "...", "name": "...", ... }
      * }
      */
-    console.log('Test 2: Get tenant by ID with valid JWT');
     const getTenantUrl = `${tenantsUrl}/${createdTenantId}`;
     response = http.get(getTenantUrl, { headers: authHeaders });
-    checkSuccess(response, 200, 'Tenant retrieved successfully');
+    checkSuccess(response, 200, 'Tenant retrieved successfully', 'Test 2: Get tenant by ID with valid JWT');
 
     const tenant = JSON.parse(response.body).data;
     console.log(`Tenant name matches: ${tenant.name === tenantName ? 'Yes' : 'No'}`);
@@ -164,13 +163,11 @@ export default function () {
      *   "message": "Missing authentication token"
      * }
      */
-    console.log('Test 3: Get tenants without JWT');
     const noAuthHeaders = {
         'Content-Type': 'application/json',
     };
-
     response = http.get(tenantsUrl, { headers: noAuthHeaders });
-    checkError(response, 401);
+    checkError(response, 401, null, 'Test 3: Get tenants without JWT');
     sleep(shortSleep());
 
     /**
@@ -183,10 +180,9 @@ export default function () {
      *   "message": "Tenant not found"
      * }
      */
-    console.log('Test 4: Get non-existent tenant');
     const fakeId = '00000000-0000-0000-0000-000000000000';
     const fakeUrl = `${tenantsUrl}/${fakeId}`;
     response = http.get(fakeUrl, { headers: authHeaders });
-    checkError(response, 404, 'not found');
+    checkError(response, 404, 'not found', 'Test 4: Get non-existent tenant');
     sleep(shortSleep());
 }

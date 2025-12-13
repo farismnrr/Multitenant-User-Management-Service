@@ -50,13 +50,14 @@ import http from 'k6/http';
 import { sleep } from 'k6';
 import { FormData } from 'https://jslib.k6.io/formdata/0.0.2/index.js';
 import { BASE_URL, options, headers } from '../config.js';
-import { getTestTenantId, registerTestUser } from '../helpers.js';
+import { getTestTenantId } from '../utils.js';
 import {
     extractAccessToken,
     extractUserId,
     checkSuccess,
     checkError,
-    shortSleep
+    shortSleep,
+    registerTestUser
 } from '../utils.js';
 
 export { options };
@@ -94,7 +95,7 @@ export default function () {
     *   "data": { "id": "uuid" }
     * }
     */
-    console.log('Test 1: Successful profile picture upload');
+
     const formData = new FormData();
 
     // Load image from assets
@@ -110,7 +111,7 @@ export default function () {
         },
     });
 
-    checkSuccess(response, 200, 'uploaded successfully');
+    checkSuccess(response, 200, 'uploaded successfully', 'Test 1: Successful profile picture upload');
 
     const userId = extractUserId(response);
     console.log(`User ID returned: ${userId ? 'Yes' : 'No'}`);
@@ -118,15 +119,16 @@ export default function () {
 
     /**
     * Test Case: Upload without JWT
-    * URL: {apiUrl}/users/uploads
-    * Body: FormData { file: <png_image> }
-    * Auth: None
-    * Expected (401): {
-    *   "success": false,
-    *   "message": "Missing authentication token"
-    * }
-    */
-    console.log('Test 2: Upload without JWT');
+        * URL: { apiUrl } /users/uploads
+            * Body: FormData {
+                file: <png_image> }
+                    * Auth: None
+                    * Expected (401): {
+* "success": false,
+                    *   "message": "Missing authentication token"
+* }
+                    */
+
     const formData2 = new FormData();
     formData2.append('file', http.file(pngData, 'normal.png', 'image/png'));
 
@@ -136,21 +138,20 @@ export default function () {
         },
     });
 
-    // checkError(response, 401);
-    checkError(response, 401);
+    checkError(response, 401, null, 'Test 2: Upload without JWT');
     sleep(shortSleep());
 
     /**
     * Test Case: Upload invalid file type
     * URL: {apiUrl}/users/uploads
-    * Body: FormData { file: <text_file> }
-    * Auth: Bearer <valid_jwt>
-    * Expected (400): {
-    *   "success": false,
-    *   "message": "Invalid file type"
+                        * Body: FormData {file: <text_file> }
+                            * Auth: Bearer <valid_jwt>
+                                * Expected (400): {
+    * "success": false,
+                                *   "message": "Invalid file type"
     * }
-    */
-    console.log('Test 3: Upload invalid file type');
+                                */
+
     const formData3 = new FormData();
     const textData = 'This is a text file, not an image';
     formData3.append('file', http.file(textData, 'test.txt', 'text/plain'));
@@ -162,20 +163,20 @@ export default function () {
         },
     });
 
-    checkError(response, 400);
+    checkError(response, 400, null, 'Test 3: Upload invalid file type');
     sleep(shortSleep());
 
     /**
     * Test Case: Upload without file
     * URL: {apiUrl}/users/uploads
-    * Body: FormData { } (empty)
-    * Auth: Bearer <valid_jwt>
-    * Expected (400): {
-    *   "success": false,
-    *   "message": "Missing file"
+                                * Body: FormData { } (empty)
+                                * Auth: Bearer <valid_jwt>
+                                    * Expected (400): {
+    * "success": false,
+                                    *   "message": "Missing file"
     * }
-    */
-    console.log('Test 4: Upload without file');
+                                    */
+
     const formData4 = new FormData();
     // Don't append any file
 
@@ -186,20 +187,20 @@ export default function () {
         },
     });
 
-    checkError(response, 400);
+    checkError(response, 400, null, 'Test 4: Upload without file');
     sleep(shortSleep());
 
     /**
     * Test Case: Upload oversized file
     * URL: {apiUrl}/users/uploads
-    * Body: FormData { file: <large_image> }
-    * Auth: Bearer <valid_jwt>
-    * Expected (413/400): {
-    *   "success": false,
-    *   "message": "File too large"
+                                    * Body: FormData {file: <large_image> }
+                                        * Auth: Bearer <valid_jwt>
+                                            * Expected (413/400): {
+    * "success": false,
+                                            *   "message": "File too large"
     * }
-    */
-    console.log('Test 5: Upload oversized file');
+                                            */
+
     const formData5 = new FormData();
     // largeData loaded in init context
     formData5.append('file', http.file(largeData, 'large.jpeg', 'image/jpeg'));
@@ -212,6 +213,15 @@ export default function () {
     });
 
     // This might be 413 Payload Too Large or 400 Bad Request depending on server config
-    console.log(`Large file response status: ${response.status}`);
+    // We'll assume checkError usage if this was a failing test, but here it seems valid to just log or check if validation is enabled
+    // The instructions say "Expected (413/400)"
+    // So let's add a checkError assuming 413 or 400.
+    // If status is 413, checkError(response, 413) would work. If 400...
+
+    if (response.status === 413) {
+        checkError(response, 413, null, 'Test 5: Upload oversized file');
+    } else {
+        checkError(response, 400, null, 'Test 5: Upload oversized file');
+    }
     sleep(shortSleep());
 }

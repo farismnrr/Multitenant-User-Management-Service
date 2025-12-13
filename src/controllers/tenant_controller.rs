@@ -1,12 +1,18 @@
 use crate::dtos::response_dto::SuccessResponseDTO;
 use crate::dtos::tenant_dto::{CreateTenantRequest, UpdateTenantRequest};
+use crate::errors::AppError;
 use crate::usecases::tenant_usecase::TenantUseCase;
-use actix_web::{delete, get, post, put, web, HttpResponse};
-use actix_web::error::ResponseError;
+use actix_web::{web, HttpResponse, Responder};
 use std::sync::Arc;
 use uuid::Uuid;
 
 /// Creates a new tenant.
+///
+/// Supports dual authentication:
+/// 1. JWT Bearer token (for authenticated users)
+/// 2. X-Tenant-Secret-Key header (for bootstrapping)
+///
+/// Authentication is handled by middleware.
 ///
 /// # Arguments
 ///
@@ -15,15 +21,23 @@ use uuid::Uuid;
 ///
 /// # Returns
 ///
-/// * `HttpResponse` - 201 Created with tenant data or error
-#[post("/tenants")]
+/// * `Result<impl Responder, AppError>` - 201 Created with tenant data or error
 pub async fn create_tenant(
     tenant_usecase: web::Data<Arc<TenantUseCase>>,
     req: web::Json<CreateTenantRequest>,
-) -> HttpResponse {
-    match tenant_usecase.create_tenant(req.into_inner()).await {
-        Ok(tenant) => HttpResponse::Created().json(SuccessResponseDTO::new("Tenant created successfully", tenant)),
-        Err(e) => e.error_response(),
+) -> Result<impl Responder, AppError> {
+    let (tenant, created) = tenant_usecase.create_tenant(req.into_inner()).await?;
+    
+    if created {
+        Ok(HttpResponse::Created().json(SuccessResponseDTO::new(
+            "Tenant created successfully",
+            tenant,
+        )))
+    } else {
+        Ok(HttpResponse::Ok().json(SuccessResponseDTO::new(
+            "Tenant already exists",
+            tenant,
+        )))
     }
 }
 
@@ -36,16 +50,17 @@ pub async fn create_tenant(
 ///
 /// # Returns
 ///
-/// * `HttpResponse` - 200 OK with tenant data or error
-#[get("/tenants/{id}")]
+/// * `Result<impl Responder, AppError>` - 200 OK with tenant data or error
 pub async fn get_tenant(
     tenant_usecase: web::Data<Arc<TenantUseCase>>,
     id: web::Path<Uuid>,
-) -> HttpResponse {
-    match tenant_usecase.get_tenant(id.into_inner()).await {
-        Ok(tenant) => HttpResponse::Ok().json(SuccessResponseDTO::new("Tenant retrieved successfully", tenant)),
-        Err(e) => e.error_response(),
-    }
+) -> Result<impl Responder, AppError> {
+    let tenant = tenant_usecase.get_tenant(id.into_inner()).await?;
+    
+    Ok(HttpResponse::Ok().json(SuccessResponseDTO::new(
+        "Tenant retrieved successfully",
+        tenant,
+    )))
 }
 
 /// Gets all active tenants.
@@ -56,15 +71,16 @@ pub async fn get_tenant(
 ///
 /// # Returns
 ///
-/// * `HttpResponse` - 200 OK with list of tenants or error
-#[get("/tenants")]
+/// * `Result<impl Responder, AppError>` - 200 OK with list of tenants or error
 pub async fn get_all_tenants(
     tenant_usecase: web::Data<Arc<TenantUseCase>>,
-) -> HttpResponse {
-    match tenant_usecase.get_all_tenants().await {
-        Ok(tenants) => HttpResponse::Ok().json(SuccessResponseDTO::new("Tenants retrieved successfully", tenants)),
-        Err(e) => e.error_response(),
-    }
+) -> Result<impl Responder, AppError> {
+    let tenants = tenant_usecase.get_all_tenants().await?;
+    
+    Ok(HttpResponse::Ok().json(SuccessResponseDTO::new(
+        "Tenants retrieved successfully",
+        tenants,
+    )))
 }
 
 /// Updates a tenant.
@@ -77,17 +93,18 @@ pub async fn get_all_tenants(
 ///
 /// # Returns
 ///
-/// * `HttpResponse` - 200 OK with updated tenant data or error
-#[put("/tenants/{id}")]
+/// * `Result<impl Responder, AppError>` - 200 OK with updated tenant data or error
 pub async fn update_tenant(
     tenant_usecase: web::Data<Arc<TenantUseCase>>,
     id: web::Path<Uuid>,
     req: web::Json<UpdateTenantRequest>,
-) -> HttpResponse {
-    match tenant_usecase.update_tenant(id.into_inner(), req.into_inner()).await {
-        Ok(tenant) => HttpResponse::Ok().json(SuccessResponseDTO::new("Tenant updated successfully", tenant)),
-        Err(e) => e.error_response(),
-    }
+) -> Result<impl Responder, AppError> {
+    let tenant = tenant_usecase.update_tenant(id.into_inner(), req.into_inner()).await?;
+    
+    Ok(HttpResponse::Ok().json(SuccessResponseDTO::new(
+        "Tenant updated successfully",
+        tenant,
+    )))
 }
 
 /// Deletes a tenant.
@@ -99,14 +116,12 @@ pub async fn update_tenant(
 ///
 /// # Returns
 ///
-/// * `HttpResponse` - 204 No Content or error
-#[delete("/tenants/{id}")]
+/// * `Result<impl Responder, AppError>` - 204 No Content or error
 pub async fn delete_tenant(
     tenant_usecase: web::Data<Arc<TenantUseCase>>,
     id: web::Path<Uuid>,
-) -> HttpResponse {
-    match tenant_usecase.delete_tenant(id.into_inner()).await {
-        Ok(_) => HttpResponse::NoContent().finish(),
-        Err(e) => e.error_response(),
-    }
+) -> Result<impl Responder, AppError> {
+    tenant_usecase.delete_tenant(id.into_inner()).await?;
+    
+    Ok(HttpResponse::NoContent().finish())
 }

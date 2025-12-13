@@ -4,7 +4,7 @@ use crate::controllers::user_controller::{
 use crate::controllers::user_details_controller::{
     get_user_details, update_user_details, upload_profile_picture,
 };
-use crate::middlewares::auth;
+use crate::middlewares::auth_middleware;
 use actix_web::web;
 use actix_web_httpauth::middleware::HttpAuthentication;
 
@@ -22,7 +22,7 @@ use actix_web_httpauth::middleware::HttpAuthentication;
 ///
 /// All routes require JWT Bearer token authentication.
 pub fn configure_user_routes(cfg: &mut web::ServiceConfig) {
-    let jwt_auth = HttpAuthentication::bearer(auth::validator);
+    let jwt_auth = HttpAuthentication::bearer(auth_middleware::validator);
     
     cfg.service(
         web::scope("/users")

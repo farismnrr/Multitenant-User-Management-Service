@@ -43,7 +43,8 @@
 import http from 'k6/http';
 import { sleep } from 'k6';
 import { options } from '../config.js';
-import { BASE_URL, API_KEY, getTestTenantId, registerTestUser } from '../helpers.js';
+import { BASE_URL, API_KEY } from '../config.js';
+import { getTestTenantId } from '../utils.js';
 import {
     randomPassword,
     extractAccessToken,

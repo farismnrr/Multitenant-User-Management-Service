@@ -59,6 +59,7 @@ impl UserRepositoryTrait for UserRepository {
         let password_hash = password::hash_password(&req.password)?;
 
         let user = user::ActiveModel {
+            id: Set(Uuid::new_v4()),  // Generate UUID in repository
             username: Set(req.username.clone()),
             email: Set(req.email.clone()),
             password_hash: Set(password_hash),

@@ -43,13 +43,15 @@
 import http from 'k6/http';
 import { sleep } from 'k6';
 import { options } from '../config.js';
-import { BASE_URL, API_KEY, getTestTenantId, registerTestUser } from '../helpers.js';
+import { BASE_URL, API_KEY } from '../config.js';
+import { getTestTenantId } from '../utils.js';
 import {
     extractAccessToken,
     extractRefreshToken,
     checkSuccess,
     checkError,
-    shortSleep
+    shortSleep,
+    registerTestUser
 } from '../utils.js';
 
 const headers = { 'Content-Type': 'application/json', 'X-API-Key': API_KEY };
@@ -87,14 +89,8 @@ export default function () {
     *   "data": { "access_token": "..." }
     * }
     */
-    console.log('Test 1: Successful token refresh');
-    const refreshHeaders = {
-        ...headers,
-        'Cookie': `refresh_token=${refreshToken}`,
-    };
-
     let response = http.post(refreshUrl, null, { headers: refreshHeaders });
-    checkSuccess(response, 200, 'Token refreshed successfully');
+    checkSuccess(response, 200, 'Token refreshed successfully', 'Test 1: Successful token refresh');
 
     const newAccessToken = extractAccessToken(response);
     console.log(`New access token received: ${newAccessToken ? 'Yes' : 'No'}`);
@@ -110,14 +106,8 @@ export default function () {
      *   "message": "Invalid refresh token"
      * }
      */
-    console.log('Test 2: Refresh with invalid token');
-    const invalidTokenHeaders = {
-        ...headers,
-        'Cookie': 'refresh_token=invalid_token_here',
-    };
-
     response = http.post(refreshUrl, null, { headers: invalidTokenHeaders });
-    checkError(response, 401);
+    checkError(response, 401, null, 'Test 2: Refresh with invalid token');
     sleep(shortSleep());
 
     /**
@@ -130,18 +120,8 @@ export default function () {
      *   "message": "Missing refresh token"
      * }
      */
-    console.log('Test 3: Refresh without token cookie');
-    // Clear cookies to ensure no refresh_token is sent
-    const jar = http.cookieJar();
-    jar.set(refreshUrl, 'refresh_token', 'deleted', { max_age: 0 }); // Attempt to expire it
-    jar.clear(BASE_URL); // Clear by base URL
-
-    const noTokenHeaders = {
-        ...headers,
-    };
-
     response = http.post(refreshUrl, null, { headers: noTokenHeaders });
-    checkError(response, 401);
+    checkError(response, 401, null, 'Test 3: Refresh without token cookie');
     sleep(shortSleep());
 
     /**
@@ -154,13 +134,7 @@ export default function () {
      *   "message": "Invalid refresh token"
      * }
      */
-    console.log('Test 4: Refresh with malformed/expired token');
-    const expiredTokenHeaders = {
-        ...headers,
-        'Cookie': 'refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.expired.token',
-    };
-
     response = http.post(refreshUrl, null, { headers: expiredTokenHeaders });
-    checkError(response, 401);
+    checkError(response, 401, null, 'Test 4: Refresh with malformed/expired token');
     sleep(shortSleep());
 }

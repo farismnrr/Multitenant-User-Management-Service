@@ -58,30 +58,30 @@
 import http from 'k6/http';
 import { sleep } from 'k6';
 import { BASE_URL, options, headers } from '../config.js';
-import { getTestTenantId, registerTestUser } from '../helpers.js';
+import { getTestTenantId } from '../utils.js';
 import {
     randomString,
     extractAccessToken,
     checkSuccess,
     checkError,
-    shortSleep
+    shortSleep,
+    registerTestUser
 } from '../utils.js';
 
 export { options };
 
 export default function () {
     const loginUrl = `${BASE_URL}/api/auth/login`;
-    const tenantsUrl = `${BASE_URL}/tenants`;
+    const tenantsUrl = `${BASE_URL}/api/tenants`;
 
     // Setup: Create and login a test user
-    // JWT authentication is required for all tenant operations
     const tenantId = getTestTenantId();
     const testUser = registerTestUser(tenantId, 'user');
-    sleep(shortSleep());
 
     const loginPayload = {
         email_or_username: testUser.email,
         password: testUser.password,
+        tenant_id: tenantId,
     };
 
     const loginResponse = http.post(loginUrl, JSON.stringify(loginPayload), { headers });
@@ -117,7 +117,6 @@ export default function () {
      *   "data": { "id": "...", "name": "Updated...", ... }
      * }
      */
-    console.log('Test 1: Update tenant with valid data');
     const updateUrl = `${tenantsUrl}/${createdTenantId}`;
     const updatedName = `Updated_${randomString(8)}`;
     const updatePayload = {
@@ -125,9 +124,8 @@ export default function () {
         description: 'Updated description',
         is_active: true,
     };
-
     let response = http.put(updateUrl, JSON.stringify(updatePayload), { headers: authHeaders });
-    checkSuccess(response, 200, 'Tenant updated successfully');
+    checkSuccess(response, 200, 'Tenant updated successfully', 'Test 1: Update tenant with valid data');
 
     const updatedTenant = JSON.parse(response.body).data;
     console.log(`Tenant name updated: ${updatedTenant.name === updatedName ? 'Yes' : 'No'}`);
@@ -143,17 +141,14 @@ export default function () {
      *   "message": "Missing authentication token"
      * }
      */
-    console.log('Test 2: Update tenant without JWT');
     const noAuthHeaders = {
         'Content-Type': 'application/json',
     };
-
     const anotherUpdate = {
         name: `NoAuth_${randomString(8)}`,
     };
-
     response = http.put(updateUrl, JSON.stringify(anotherUpdate), { headers: noAuthHeaders });
-    checkError(response, 401);
+    checkError(response, 401, null, 'Test 2: Update tenant without JWT');
     sleep(shortSleep());
 
     /**
@@ -166,15 +161,13 @@ export default function () {
      *   "message": "Tenant not found"
      * }
      */
-    console.log('Test 3: Update non-existent tenant');
     const fakeId = '00000000-0000-0000-0000-000000000000';
     const fakeUrl = `${tenantsUrl}/${fakeId}`;
     const fakeUpdate = {
         name: `Fake_${randomString(8)}`,
     };
-
     response = http.put(fakeUrl, JSON.stringify(fakeUpdate), { headers: authHeaders });
-    checkError(response, 404, 'not found');
+    checkError(response, 404, 'not found', 'Test 3: Update non-existent tenant');
     sleep(shortSleep());
 
     /**
@@ -187,7 +180,6 @@ export default function () {
      *   "message": "Tenant name already exists"
      * }
      */
-    console.log('Test 4: Update with duplicate name');
     // Create another tenant
     const anotherTenant = {
         name: `Another_${randomString(8)}`,
@@ -201,8 +193,7 @@ export default function () {
     const duplicateUpdate = {
         name: anotherTenantData.name,
     };
-
     response = http.put(updateUrl, JSON.stringify(duplicateUpdate), { headers: authHeaders });
-    checkError(response, 409, 'already exists');
+    checkError(response, 409, 'already exists', 'Test 4: Update with duplicate name');
     sleep(shortSleep());
 }

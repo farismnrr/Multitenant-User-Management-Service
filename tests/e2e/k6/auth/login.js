@@ -65,9 +65,11 @@ import {
     extractRefreshToken,
     checkSuccess,
     checkError,
-    shortSleep
+    shortSleep,
+    registerTestUser
 } from '../utils.js';
-import { BASE_URL, API_KEY, getTestTenantId, registerTestUser } from '../helpers.js';
+import { BASE_URL, API_KEY } from '../config.js';
+import { getTestTenantId } from '../utils.js';
 
 const headers = {
     'Content-Type': 'application/json',
@@ -94,15 +96,8 @@ export default function () {
      *   "data": { "user": {...}, "access_token": "..." }
      * }
      */
-    console.log('Test 1: Successful login with email');
-    const loginWithEmail = {
-        email_or_username: testUser.email,
-        password: testUser.password,
-        tenant_id: tenantId,
-    };
-
     let response = http.post(loginUrl, JSON.stringify(loginWithEmail), { headers });
-    checkSuccess(response, 200, 'Login successful');
+    checkSuccess(response, 200, 'Login successful', 'Test 1: Successful login with email');
 
     const accessToken = extractAccessToken(response);
     const refreshToken = extractRefreshToken(response);
@@ -121,15 +116,8 @@ export default function () {
      *   "data": { "user": {...}, "access_token": "..." }
      * }
      */
-    console.log('Test 2: Successful login with username');
-    const loginWithUsername = {
-        email_or_username: testUser.username,
-        password: testUser.password,
-        tenant_id: tenantId,
-    };
-
     response = http.post(loginUrl, JSON.stringify(loginWithUsername), { headers });
-    checkSuccess(response, 200, 'Login successful');
+    checkSuccess(response, 200, 'Login successful', 'Test 2: Successful login with username');
     sleep(shortSleep());
 
     /**
@@ -142,15 +130,8 @@ export default function () {
      *   "message": "Invalid credentials"
      * }
      */
-    console.log('Test 3: Wrong password');
-    const wrongPassword = {
-        email_or_username: testUser.email,
-        password: 'WrongPassword123!',
-        tenant_id: tenantId,
-    };
-
     response = http.post(loginUrl, JSON.stringify(wrongPassword), { headers });
-    checkError(response, 401);
+    checkError(response, 401, null, 'Test 3: Wrong password');
     sleep(shortSleep());
 
     /**
@@ -163,15 +144,8 @@ export default function () {
      *   "message": "User not found"
      * }
      */
-    console.log('Test 4: Non-existent user');
-    const nonExistentUser = {
-        email_or_username: 'nonexistent@example.com',
-        password: randomPassword(),
-        tenant_id: tenantId,
-    };
-
     response = http.post(loginUrl, JSON.stringify(nonExistentUser), { headers });
-    checkError(response, 401);
+    checkError(response, 401, null, 'Test 4: Non-existent user');
     sleep(shortSleep());
 
     /**
@@ -184,13 +158,8 @@ export default function () {
      *   "message": "Missing credentials"
      * }
      */
-    console.log('Test 5: Missing credentials (no password)');
-    const missingPassword = {
-        email_or_username: testUser.email,
-    };
-
     response = http.post(loginUrl, JSON.stringify(missingPassword), { headers });
-    checkError(response, 400);
+    checkError(response, 400, null, 'Test 5: Missing credentials (no password)');
     sleep(shortSleep());
 
     /**
@@ -203,15 +172,8 @@ export default function () {
      *   "message": "User not found"
      * }
      */
-    console.log('Test 6: Invalid email format');
-    const invalidEmail = {
-        email_or_username: 'invalid-email',
-        password: randomPassword(),
-        tenant_id: tenantId,
-    };
-
     response = http.post(loginUrl, JSON.stringify(invalidEmail), { headers });
-    checkError(response, 401); // Will be treated as username and not found
+    checkError(response, 401, null, 'Test 6: Invalid email format'); // Will be treated as username and not found
     sleep(shortSleep());
 
     /**
@@ -224,12 +186,7 @@ export default function () {
      *   "message": "Missing API Key"
      * }
      */
-    console.log('Test 7: Missing API key');
-    const noApiKeyHeaders = {
-        'Content-Type': 'application/json',
-    };
-
     response = http.post(loginUrl, JSON.stringify(loginWithEmail), { headers: noApiKeyHeaders });
-    checkError(response, 401);
+    checkError(response, 401, null, 'Test 7: Missing API key');
     sleep(shortSleep());
 }

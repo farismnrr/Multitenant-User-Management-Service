@@ -52,12 +52,13 @@ import http from 'k6/http';
 import { sleep } from 'k6';
 import { check } from 'k6';
 import { BASE_URL, options, headers } from '../config.js';
-import { getTestTenantId, registerTestUser } from '../helpers.js';
+import { getTestTenantId } from '../utils.js';
 import {
     extractAccessToken,
     checkSuccess,
     checkError,
-    shortSleep
+    shortSleep,
+    registerTestUser
 } from '../utils.js';
 
 export { options };
@@ -96,14 +97,12 @@ export default function () {
     *   "data": [ { "id": "...", ... }, ... ]
     * }
     */
-    console.log('Test 1: Get all users with valid JWT');
     const validHeaders = {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${accessToken}`,
     };
-
     let response = http.get(getAllUsersUrl, { headers: validHeaders });
-    checkSuccess(response, 200);
+    checkSuccess(response, 200, null, 'Test 1: Get all users with valid JWT');
 
     // Verify response is an array
     check(response, {
@@ -131,14 +130,12 @@ export default function () {
      *   "message": "Missing authentication token"
      * }
      */
-    console.log('Test 2: Get all without JWT');
     const noAuthHeaders = {
         'Content-Type': 'application/json',
     };
-
     response = http.get(getAllUsersUrl, { headers: noAuthHeaders });
     response = http.get(getAllUsersUrl, { headers: noAuthHeaders });
-    checkError(response, 401);
+    checkError(response, 401, null, 'Test 2: Get all without JWT');
     sleep(shortSleep());
 
     /**
@@ -151,13 +148,11 @@ export default function () {
      *   "message": "Invalid token"
      * }
      */
-    console.log('Test 3: Get all with invalid JWT');
     const invalidJwtHeaders = {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer invalid_token_here',
     };
-
     response = http.get(getAllUsersUrl, { headers: invalidJwtHeaders });
-    checkError(response, 401);
+    checkError(response, 401, null, 'Test 3: Get all with invalid JWT');
     sleep(shortSleep());
 }

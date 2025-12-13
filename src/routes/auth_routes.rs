@@ -1,5 +1,5 @@
 use crate::controllers::auth_controller::{change_password, login, logout, refresh, register, verify};
-use crate::middlewares::auth;
+use crate::middlewares::auth_middleware;
 use actix_web::web;
 use actix_web_httpauth::middleware::HttpAuthentication;
 
@@ -31,7 +31,7 @@ pub fn configure_api_key_routes(cfg: &mut web::ServiceConfig) {
 ///
 /// All routes require JWT Bearer token authentication.
 pub fn configure_jwt_routes(cfg: &mut web::ServiceConfig) {
-    let jwt_auth = HttpAuthentication::bearer(auth::validator);
+    let jwt_auth = HttpAuthentication::bearer(auth_middleware::validator);
     
     cfg.service(
         web::scope("/auth")

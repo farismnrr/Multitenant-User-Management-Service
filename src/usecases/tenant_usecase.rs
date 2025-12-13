@@ -33,8 +33,8 @@ impl TenantUseCase {
     ///
     /// # Returns
     ///
-    /// * `Result<TenantResponse, AppError>` - Created or existing tenant
-    pub async fn create_tenant(&self, req: CreateTenantRequest) -> Result<TenantResponse, AppError> {
+    /// * `Result<(TenantResponse, bool), AppError>` - (Tenant data, created_flag)
+    pub async fn create_tenant(&self, req: CreateTenantRequest) -> Result<(TenantResponse, bool), AppError> {
         // Validate name length
         if req.name.is_empty() || req.name.len() > 255 {
             return Err(AppError::ValidationError("Name must be between 1 and 255 characters".to_string()));
@@ -42,14 +42,14 @@ impl TenantUseCase {
 
         // Check if tenant name already exists
         if let Some(existing_tenant) = self.tenant_repo.find_by_name(&req.name).await? {
-            // Return existing tenant instead of error
-            return Ok(TenantResponse::from(existing_tenant));
+            // Return existing tenant with false flag (not created)
+            return Ok((TenantResponse::from(existing_tenant), false));
         }
 
         // Create tenant
         let tenant = self.tenant_repo.create(req).await?;
 
-        Ok(TenantResponse::from(tenant))
+        Ok((TenantResponse::from(tenant), true))
     }
 
     /// Gets a tenant by ID.

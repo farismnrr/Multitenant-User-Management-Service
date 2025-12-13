@@ -47,18 +47,20 @@
 import http from 'k6/http';
 import { sleep } from 'k6';
 import { BASE_URL, options, headers } from '../config.js';
-import { getTestTenantId, registerTestUser } from '../helpers.js';
+import { getTestTenantId } from '../utils.js';
 import {
     extractAccessToken,
     checkSuccess,
     checkError,
-    shortSleep
+    shortSleep,
+    registerTestUser
 } from '../utils.js';
 
 export { options };
 
 export default function () {
     const loginUrl = `${BASE_URL}/api/auth/login`;
+    const tenantsUrl = `${BASE_URL}/api/tenants`;
     const getUserUrl = `${BASE_URL}/users`;
     const getAllUsersUrl = `${BASE_URL}/users/all`;
     const deleteUserUrl = `${BASE_URL}/users`;
@@ -75,17 +77,15 @@ export default function () {
      * }
      * Note: Soft delete sets deleted_at timestamp
      */
-    console.log('Test 1: Create user, delete it, and verify soft delete');
 
-    // Create first user
+    // Setup: Create and login a test user
     const tenantId = getTestTenantId();
     const testUser = registerTestUser(tenantId, 'user');
-    sleep(shortSleep());
 
-    // Login as first user
     const loginPayload = {
         email_or_username: testUser.email,
         password: testUser.password,
+        tenant_id: tenantId,
     };
 
     let loginResponse = http.post(loginUrl, JSON.stringify(loginPayload), { headers });
@@ -105,6 +105,7 @@ export default function () {
 
     // Delete the user (soft delete)
     response = http.del(deleteUserUrl, null, { headers: authHeaders });
+    checkSuccess(response, 200, 'User deleted successfully', 'Test 1: Create user, delete it, and verify soft delete');
     console.log(`Delete response status: ${response.status}`);
     sleep(shortSleep());
 
@@ -118,9 +119,8 @@ export default function () {
      *   "message": "Invalid credentials"
      * }
      */
-    console.log('Test 2: Verify deleted user cannot login');
     loginResponse = http.post(loginUrl, JSON.stringify(loginPayload), { headers });
-    checkError(loginResponse, 401);
+    checkError(loginResponse, 401, null, 'Test 2: Verify deleted user cannot login');
     console.log('Deleted user cannot login - PASSED');
     sleep(shortSleep());
 
@@ -135,7 +135,6 @@ export default function () {
      *   "data": [ ... ] // Should NOT include deleted user
      * }
      */
-    console.log('Test 3: Verify deleted user doesn\'t appear in GET /users/all');
 
     // Create another user to check listings
     const adminUser = registerTestUser(tenantId, 'user');
@@ -157,7 +156,7 @@ export default function () {
 
     // Get all users
     response = http.get(getAllUsersUrl, { headers: adminAuthHeaders });
-    checkSuccess(response, 200, 'Users retrieved successfully');
+    checkSuccess(response, 200, 'Users retrieved successfully', 'Test 3: Verify deleted user doesn\'t appear in GET /users/all');
 
     const allUsers = JSON.parse(response.body).data;
     const deletedUserExists = allUsers.some(u => u.email === testUser.email);

@@ -23,61 +23,61 @@ import userDetailsUpdateTest from './user_details/update.js';
 import userDetailsUploadTest from './user_details/upload.js';
 import userDetailsSoftDeleteTest from './user_details/soft_delete.js';
 
+import tenantsCreateWithSecretTest from './tenants/create_with_secret.js';
 import tenantsCreateTest from './tenants/create.js';
 import tenantsGetTest from './tenants/get.js';
 import tenantsUpdateTest from './tenants/update.js';
 import tenantsSoftDeleteTest from './tenants/soft_delete.js';
 
+import { sleep } from 'k6';
+
 export const options = {
-    scenarios: {
-        // Auth tests
-        auth_register: { executor: 'shared-iterations', exec: 'authRegister', iterations: 1, maxDuration: '30s' },
-        auth_login: { executor: 'shared-iterations', exec: 'authLogin', iterations: 1, maxDuration: '30s', startTime: '1s' },
-        auth_logout: { executor: 'shared-iterations', exec: 'authLogout', iterations: 1, maxDuration: '30s', startTime: '2s' },
-        auth_refresh: { executor: 'shared-iterations', exec: 'authRefresh', iterations: 1, maxDuration: '30s', startTime: '3s' },
-        auth_verify: { executor: 'shared-iterations', exec: 'authVerify', iterations: 1, maxDuration: '30s', startTime: '4s' },
-
-        // User tests
-        users_get: { executor: 'shared-iterations', exec: 'usersGet', iterations: 1, maxDuration: '30s', startTime: '5s' },
-        users_get_all: { executor: 'shared-iterations', exec: 'usersGetAll', iterations: 1, maxDuration: '30s', startTime: '6s' },
-        users_update: { executor: 'shared-iterations', exec: 'usersUpdate', iterations: 1, maxDuration: '30s', startTime: '7s' },
-        users_soft_delete: { executor: 'shared-iterations', exec: 'usersSoftDelete', iterations: 1, maxDuration: '30s', startTime: '8s' },
-
-        // User details tests
-        user_details_update: { executor: 'shared-iterations', exec: 'userDetailsUpdate', iterations: 1, maxDuration: '30s', startTime: '9s' },
-        user_details_upload: { executor: 'shared-iterations', exec: 'userDetailsUpload', iterations: 1, maxDuration: '30s', startTime: '10s' },
-        user_details_soft_delete: { executor: 'shared-iterations', exec: 'userDetailsSoftDelete', iterations: 1, maxDuration: '30s', startTime: '11s' },
-
-        // Tenant tests
-        tenants_create: { executor: 'shared-iterations', exec: 'tenantsCreate', iterations: 1, maxDuration: '30s', startTime: '12s' },
-        tenants_get: { executor: 'shared-iterations', exec: 'tenantsGet', iterations: 1, maxDuration: '30s', startTime: '13s' },
-        tenants_update: { executor: 'shared-iterations', exec: 'tenantsUpdate', iterations: 1, maxDuration: '30s', startTime: '14s' },
-        tenants_soft_delete: { executor: 'shared-iterations', exec: 'tenantsSoftDelete', iterations: 1, maxDuration: '30s', startTime: '15s' },
+    // Run sequentially in a single VU to share state (tenant ID)
+    iterations: 1,
+    vus: 1,
+    thresholds: {
+        http_req_duration: ['p(95)<2000'], // 95% of requests must complete below 2s
     },
 };
 
-// Export test functions
-export function authRegister() { authRegisterTest(); }
-export function authLogin() { authLoginTest(); }
-export function authLogout() { authLogoutTest(); }
-export function authRefresh() { authRefreshTest(); }
-export function authVerify() { authVerifyTest(); }
+export default function () {
+    // 1. Tenant Creation (REQUIRED FIRST)
+    try {
+        tenantsCreateWithSecretTest();
+    } catch (e) {
+        console.error(`\x1b[31mTest: tenantsCreateWithSecretTest (CRASHED)\nError: ${e}\x1b[0m\n--------------------------------------------------`);
+    }
+    sleep(1);
+    // 2. Auth Tests
+    try { authRegisterTest(); } catch (e) { console.error(`\x1b[31mTest: authRegisterTest (CRASHED)\nError: ${e}\x1b[0m\n--------------------------------------------------`); }
 
-export function usersGet() { usersGetTest(); }
-export function usersGetAll() { usersGetAllTest(); }
-export function usersUpdate() { usersUpdateTest(); }
-export function usersSoftDelete() { usersSoftDeleteTest(); }
+    try { authLoginTest(); } catch (e) { console.error(`\x1b[31mTest: authLoginTest (CRASHED)\nError: ${e}\x1b[0m\n--------------------------------------------------`); } // Logs in and sets global access token
+    try { authVerifyTest(); } catch (e) { console.error(`\x1b[31mTest: authVerifyTest (CRASHED)\nError: ${e}\x1b[0m\n--------------------------------------------------`); }
+    try { authRefreshTest(); } catch (e) { console.error(`\x1b[31mTest: authRefreshTest (CRASHED)\nError: ${e}\x1b[0m\n--------------------------------------------------`); }
+    try { authLogoutTest(); } catch (e) { console.error(`\x1b[31mTest: authLogoutTest (CRASHED)\nError: ${e}\x1b[0m\n--------------------------------------------------`); }
+    try { authLoginTest(); } catch (e) { console.error(`\x1b[31mTest: authLoginTest (Re-login) (CRASHED)\nError: ${e}\x1b[0m\n--------------------------------------------------`); }
+    sleep(1);
 
-export function userDetailsUpdate() { userDetailsUpdateTest(); }
-export function userDetailsUpload() { userDetailsUploadTest(); }
-export function userDetailsSoftDelete() { userDetailsSoftDeleteTest(); }
+    // 3. User Tests
+    try { usersGetAllTest(); } catch (e) { console.error(`\x1b[31mTest: usersGetAllTest (CRASHED)\nError: ${e}\x1b[0m\n--------------------------------------------------`); }
+    try { usersGetTest(); } catch (e) { console.error(`\x1b[31mTest: usersGetTest (CRASHED)\nError: ${e}\x1b[0m\n--------------------------------------------------`); }
+    try { usersUpdateTest(); } catch (e) { console.error(`\x1b[31mTest: usersUpdateTest (CRASHED)\nError: ${e}\x1b[0m\n--------------------------------------------------`); }
 
-export function tenantsCreate() { tenantsCreateTest(); }
-export function tenantsGet() { tenantsGetTest(); }
-export function tenantsUpdate() { tenantsUpdateTest(); }
-export function tenantsSoftDelete() { tenantsSoftDeleteTest(); }
+    // 4. User Details Tests
+    try { userDetailsUpdateTest(); } catch (e) { console.error(`\x1b[31mTest: userDetailsUpdateTest (CRASHED)\nError: ${e}\x1b[0m\n--------------------------------------------------`); }
+    try { userDetailsUploadTest(); } catch (e) { console.error(`\x1b[31mTest: userDetailsUploadTest (CRASHED)\nError: ${e}\x1b[0m\n--------------------------------------------------`); }
 
-// Generate HTML report
+    // 5. Tenant Tests (JWT based)
+    try { tenantsCreateTest(); } catch (e) { console.error(`\x1b[31mTest: tenantsCreateTest (CRASHED)\nError: ${e}\x1b[0m\n--------------------------------------------------`); }
+    try { tenantsGetTest(); } catch (e) { console.error(`\x1b[31mTest: tenantsGetTest (CRASHED)\nError: ${e}\x1b[0m\n--------------------------------------------------`); }
+    try { tenantsUpdateTest(); } catch (e) { console.error(`\x1b[31mTest: tenantsUpdateTest (CRASHED)\nError: ${e}\x1b[0m\n--------------------------------------------------`); }
+
+    // 6. Soft Delete Tests (Destructive, run last)
+    try { userDetailsSoftDeleteTest(); } catch (e) { console.error(`\x1b[31mTest: userDetailsSoftDeleteTest (CRASHED)\nError: ${e}\x1b[0m\n--------------------------------------------------`); }
+    try { usersSoftDeleteTest(); } catch (e) { console.error(`\x1b[31mTest: usersSoftDeleteTest (CRASHED)\nError: ${e}\x1b[0m\n--------------------------------------------------`); }
+    try { tenantsSoftDeleteTest(); } catch (e) { console.error(`\x1b[31mTest: tenantsSoftDeleteTest (CRASHED)\nError: ${e}\x1b[0m\n--------------------------------------------------`); }
+}
+
 export function handleSummary(data) {
     return {
         "coverage/test-e2e.html": htmlReport(data),

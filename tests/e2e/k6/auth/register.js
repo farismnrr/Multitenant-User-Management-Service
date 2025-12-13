@@ -50,7 +50,8 @@
 import http from 'k6/http';
 import { sleep } from 'k6';
 import { options } from '../config.js';
-import { BASE_URL, API_KEY, getTestTenantId } from '../helpers.js';
+import { BASE_URL, API_KEY } from '../config.js';
+import { getTestTenantId } from '../utils.js';
 import {
     randomEmail,
     randomUsername,
@@ -73,6 +74,58 @@ export default function () {
     // Create test tenant
     const tenantId = getTestTenantId();
 
+    const validPayload = {
+        username: randomUsername(),
+        email: randomEmail(),
+        password: randomPassword(),
+        tenant_id: tenantId,
+        role: "user"
+    };
+
+    const duplicateEmailPayload = {
+        username: randomUsername(),
+        email: validPayload.email,
+        password: randomPassword(),
+        tenant_id: tenantId,
+        role: "user"
+    };
+
+    const duplicateUsernamePayload = {
+        username: validPayload.username,
+        email: randomEmail(),
+        password: randomPassword(),
+        tenant_id: tenantId,
+        role: "user"
+    };
+
+    const invalidEmailPayload = {
+        username: randomUsername(),
+        email: "invalid-email",
+        password: randomPassword(),
+        tenant_id: tenantId,
+        role: "user"
+    };
+
+    const missingFieldPayload = {
+        username: randomUsername(),
+        // email missing
+        password: randomPassword(),
+        tenant_id: tenantId,
+        role: "user"
+    };
+
+    const weakPasswordPayload = {
+        username: randomUsername(),
+        email: randomEmail(),
+        password: "123",
+        tenant_id: tenantId,
+        role: "user"
+    };
+
+    const noApiKeyHeaders = {
+        'Content-Type': 'application/json',
+    };
+
     /**
      * Test Case: Successful registration
      * URL: {apiUrl}/api/auth/register
@@ -84,17 +137,8 @@ export default function () {
      *   "data": { "id": "...", "access_token": "..." }
      * }
      */
-    console.log('Test 1: Successful registration');
-    const validPayload = {
-        username: randomUsername(),
-        email: randomEmail(),
-        password: randomPassword(),
-        tenant_id: tenantId,
-        role: 'user',
-    };
-
     let response = http.post(baseUrl, JSON.stringify(validPayload), { headers });
-    checkSuccess(response, 201, 'registered successfully');
+    checkSuccess(response, 201, 'registered successfully', 'Test 1: Successful registration');
     sleep(shortSleep());
 
     /**
@@ -107,17 +151,8 @@ export default function () {
      *   "message": "Email already exists"
      * }
      */
-    console.log('Test 2: Duplicate email');
-    const duplicateEmailPayload = {
-        username: randomUsername(),
-        email: validPayload.email, // Same email
-        password: validPayload.password, // Same password (required for multi-tenant linking check)
-        tenant_id: tenantId,
-        role: 'user',
-    };
-
     response = http.post(baseUrl, JSON.stringify(duplicateEmailPayload), { headers });
-    checkError(response, 409, 'already registered');
+    checkError(response, 409, 'already registered', 'Test 2: Duplicate email');
     sleep(shortSleep());
 
     /**
@@ -130,17 +165,8 @@ export default function () {
      *   "message": "Username already exists"
      * }
      */
-    console.log('Test 3: Duplicate username');
-    const duplicateUsernamePayload = {
-        username: validPayload.username, // Same username
-        email: randomEmail(),
-        password: randomPassword(),
-        tenant_id: tenantId,
-        role: 'user',
-    };
-
     response = http.post(baseUrl, JSON.stringify(duplicateUsernamePayload), { headers });
-    checkError(response, 409, 'username');
+    checkError(response, 409, 'username', 'Test 3: Duplicate username');
     sleep(shortSleep());
 
     /**
@@ -153,17 +179,8 @@ export default function () {
      *   "message": "Invalid email format"
      * }
      */
-    console.log('Test 4: Invalid email format');
-    const invalidEmailPayload = {
-        username: randomUsername(),
-        tenant_id: tenantId,
-        role: "user",
-        email: 'invalid-email',
-        password: randomPassword(),
-    };
-
     response = http.post(baseUrl, JSON.stringify(invalidEmailPayload), { headers });
-    checkError(response, 422);
+    checkError(response, 422, null, 'Test 4: Invalid email format');
     sleep(shortSleep());
 
     /**
@@ -176,16 +193,8 @@ export default function () {
      *   "message": "Missing required fields"
      * }
      */
-    console.log('Test 5: Missing required fields (no email)');
-    const missingFieldPayload = {
-        username: randomUsername(),
-        tenant_id: tenantId,
-        role: "user",
-        password: randomPassword(),
-    };
-
     response = http.post(baseUrl, JSON.stringify(missingFieldPayload), { headers });
-    checkError(response, 400);
+    checkError(response, 400, null, 'Test 5: Missing required fields (no email)');
     sleep(shortSleep());
 
     /**
@@ -198,17 +207,8 @@ export default function () {
      *   "message": "Password too short"
      * }
      */
-    console.log('Test 6: Weak password');
-    const weakPasswordPayload = {
-        username: randomUsername(),
-        tenant_id: tenantId,
-        role: "user",
-        email: randomEmail(),
-        password: '123',
-    };
-
     response = http.post(baseUrl, JSON.stringify(weakPasswordPayload), { headers });
-    checkError(response, 422);
+    checkError(response, 422, null, 'Test 6: Weak password');
     sleep(shortSleep());
 
     /**
@@ -221,12 +221,7 @@ export default function () {
      *   "message": "Missing API Key"
      * }
      */
-    console.log('Test 7: Missing API key');
-    const noApiKeyHeaders = {
-        'Content-Type': 'application/json',
-    };
-
     response = http.post(baseUrl, JSON.stringify(validPayload), { headers: noApiKeyHeaders });
-    checkError(response, 401);
+    checkError(response, 401, null, 'Test 7: Missing API key');
     sleep(shortSleep());
 }

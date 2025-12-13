@@ -25,6 +25,7 @@ impl UserTenantRepository {
 impl UserTenantRepositoryTrait for UserTenantRepository {
     async fn add_user_to_tenant(&self, user_id: Uuid, tenant_id: Uuid, role: String) -> Result<(), AppError> {
         let user_tenant = user_tenant::ActiveModel {
+            id: Set(Uuid::new_v4()),  // Generate UUID in repository
             user_id: Set(user_id),
             tenant_id: Set(tenant_id),
             role: Set(role),

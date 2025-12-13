@@ -42,13 +42,15 @@
 import http from 'k6/http';
 import { sleep } from 'k6';
 import { options } from '../config.js';
-import { BASE_URL, API_KEY, getTestTenantId, registerTestUser } from '../helpers.js';
+import { BASE_URL, API_KEY } from '../config.js';
+import { getTestTenantId } from '../utils.js';
 import {
     randomString,
     extractAccessToken,
     checkSuccess,
     checkError,
-    shortSleep
+    shortSleep,
+    registerTestUser
 } from '../utils.js';
 
 const headers = {
@@ -60,14 +62,14 @@ export { options };
 
 export default function () {
     const loginUrl = `${BASE_URL}/api/auth/login`;
-    const tenantsUrl = `${BASE_URL}/tenants`;
+    const tenantsUrl = `${BASE_URL}/api/tenants`;
 
     /**
      * Test Case: Create tenant, delete it, and verify soft delete behavior
      */
     console.log('Test 1: Create tenant and soft delete it');
 
-    // Setup: Create tenant and user
+    // Setup: Create and login a test user
     const tenantId = getTestTenantId();
     const testUser = registerTestUser(tenantId, 'user');
 
@@ -115,9 +117,8 @@ export default function () {
      * Expected (204): No Content
      * Note: Soft delete sets deleted_at timestamp
      */
-    console.log('Test 1: Delete tenant (soft delete)');
     response = http.del(`${tenantsUrl}/${deleteTenantId}`, null, { headers: authHeaders });
-    console.log(`Delete response status: ${response.status}`);
+    checkSuccess(response, 204, null, 'Test 1: Delete tenant (soft delete)');
     sleep(shortSleep());
 
     /**
@@ -130,9 +131,8 @@ export default function () {
      *   "message": "Tenant not found"
      * }
      */
-    console.log('Test 2: Verify deleted tenant not found by ID');
     response = http.get(`${tenantsUrl}/${deleteTenantId}`, { headers: authHeaders });
-    checkError(response, 404, 'not found');
+    checkError(response, 404, 'not found', 'Test 2: Verify deleted tenant not found by ID');
     console.log('Deleted tenant NOT found by ID - PASSED');
     sleep(shortSleep());
 
@@ -147,9 +147,8 @@ export default function () {
      *   "data": [ ... ] // Should NOT include deleted tenant
      * }
      */
-    console.log('Test 3: Verify deleted tenant not in listings');
     response = http.get(tenantsUrl, { headers: authHeaders });
-    checkSuccess(response, 200, 'Tenants retrieved successfully');
+    checkSuccess(response, 200, 'Tenants retrieved successfully', 'Test 3: Verify deleted tenant not in listings');
 
     const allTenants = JSON.parse(response.body).data;
     const deletedTenantExists = allTenants.some(t => t.id === deleteTenantId);
@@ -171,9 +170,8 @@ export default function () {
      *   "message": "Tenant not found"
      * }
      */
-    console.log('Test 4: Delete already deleted tenant (should return 404)');
     response = http.del(`${tenantsUrl}/${deleteTenantId}`, null, { headers: authHeaders });
-    checkError(response, 404, 'not found');
+    checkError(response, 404, 'not found', 'Test 4: Delete already deleted tenant (should return 404)');
     console.log('Cannot delete already deleted tenant - PASSED');
     sleep(shortSleep());
 

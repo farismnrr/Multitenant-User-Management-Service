@@ -9,9 +9,23 @@ use std::io::Write;
 use log::info;
 use std::sync::OnceLock;
 
-use crate::middlewares::api_key::ApiKeyMiddleware;
-use crate::middlewares::powered_by::PoweredByMiddleware;
-use crate::middlewares::logger_request::RequestLoggerMiddleware;
+use crate::repositories::user_repository::UserRepository;
+use crate::repositories::user_details_repository::UserDetailsRepository;
+use crate::repositories::user_session_repository::UserSessionRepository;
+use crate::repositories::user_activity_log_repository::UserActivityLogRepository;
+use crate::repositories::tenant_repository::TenantRepository;
+use crate::repositories::user_tenant_repository::UserTenantRepository;
+use crate::usecases::user_usecase::UserUseCase;
+use crate::usecases::auth_usecase::AuthUseCase;
+use crate::usecases::user_details_usecase::UserDetailsUseCase;
+use crate::usecases::tenant_usecase::TenantUseCase;
+use crate::routes::user_routes;
+use crate::routes::auth_routes;
+use crate::routes::tenant_routes;
+
+use crate::middlewares::api_key_middleware::ApiKeyMiddleware;
+use crate::middlewares::powered_by_middleware::PoweredByMiddleware;
+use crate::middlewares::request_logger_middleware::RequestLoggerMiddleware;
 use crate::infrastructures::postgres_connection;
 use std::sync::Arc;
 use tokio::sync::watch;
@@ -37,48 +51,51 @@ async fn healthcheck() -> impl Responder {
 pub async fn run_server() -> std::io::Result<()> {
     dotenvy::dotenv().ok();
 
-    // Create logs directory if it doesn't exist
+    // ================================================================================================
+    // 📝 LOG SECTION
+    // ================================================================================================
+    //
+    // This section initializes the logging infrastructure.
+    // It performs the following:
+    // 1. Creates a "logs" directory if it doesn't exist.
+    // 2. Manages log rotation: checks for a previous run's log file or creates a new one
+    //    based on the current timestamp.
+    // 3. Sets up a `DualWriter` to output logs to both the console (with colors) and the file.
+    // 4. Initializes the global logger (env_logger) with specific formatting.
+
     std::fs::create_dir_all("logs")
         .map_err(|e| std::io::Error::other(format!("Failed to create logs directory: {}", e)))?;
 
-    // Check if there's an existing log file from a previous run (for hot reload)
     let current_log_marker = "logs/.current_log";
     let log_file_path = if let Ok(existing_path) = std::fs::read_to_string(current_log_marker) {
-        // Use existing log file if it exists
         if std::path::Path::new(&existing_path).exists() {
             existing_path.trim().to_string()
         } else {
-            // File was deleted, create new one
             let timestamp = Local::now().format("%Y%m%d_%H%M%S");
             let new_path = format!("logs/{}.log", timestamp);
             std::fs::write(current_log_marker, &new_path)?;
             new_path
         }
     } else {
-        // No marker file, create new log file
         let timestamp = Local::now().format("%Y%m%d_%H%M%S");
         let new_path = format!("logs/{}.log", timestamp);
         std::fs::write(current_log_marker, &new_path)?;
         new_path
     };
 
-    // Open log file for appending
     let log_file = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
         .open(&log_file_path)
         .map_err(|e| std::io::Error::other(format!("Failed to open log file: {}", e)))?;
 
-    // Custom writer that writes to both stdout and file
     struct DualWriter {
         file: std::sync::Mutex<std::fs::File>,
     }
 
     impl Write for DualWriter {
         fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-            // Write to stdout (with colors)
             std::io::stdout().write_all(buf)?;
-            // Write to file (colors will be included but that's okay for now)
             self.file.lock().unwrap().write_all(buf)?;
             Ok(buf.len())
         }
@@ -94,7 +111,6 @@ pub async fn run_server() -> std::io::Result<()> {
         file: std::sync::Mutex::new(log_file)
     };
 
-    // Initialize logger only once per process
     static LOGGER_INIT: OnceLock<()> = OnceLock::new();
     LOGGER_INIT.get_or_init(|| {
         let env = env_logger::Env::new().filter_or("LOG_LEVEL", "info");
@@ -102,7 +118,7 @@ pub async fn run_server() -> std::io::Result<()> {
         
         env_logger::Builder::from_env(env)
             .format(move |buf, record| {
-                let ts = Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
+                let ts = Local::now().format("%Y%m%d_%H%M%S");
                 let level_str = match record.level() {
                     log::Level::Error => Colour::Red.paint("ERROR"),
                     log::Level::Warn  => Colour::Yellow.paint("WARN"),
@@ -121,22 +137,24 @@ pub async fn run_server() -> std::io::Result<()> {
     info!("🟢 Starting server initialization");
     info!("📝 Logging to file: {}", log_file_path);
 
+    // ================================================================================================
+    // 🗄️ DATABASE SECTION
+    // ================================================================================================
+    //
+    // Initializes the asynchronous Postgres connection pool.
+    // This pool allows multiple concurrent database operations throughout the application.
+
     let db = postgres_connection::initialize().await
         .map_err(|e| std::io::Error::other(format!("Postgres initialization failed: {}", e)))?;
 
-    use crate::repositories::user_repository::UserRepository;
-    use crate::repositories::user_details_repository::UserDetailsRepository;
-    use crate::repositories::user_session_repository::UserSessionRepository;
-    use crate::repositories::user_activity_log_repository::UserActivityLogRepository;
-    use crate::repositories::tenant_repository::TenantRepository;
-    use crate::repositories::user_tenant_repository::UserTenantRepository;
-    use crate::usecases::user_usecase::UserUseCase;
-    use crate::usecases::auth_usecase::AuthUseCase;
-    use crate::usecases::user_details_usecase::UserDetailsUseCase;
-    use crate::usecases::tenant_usecase::TenantUseCase;
-    use crate::routes::user_routes;
-    use crate::routes::auth_routes;
-    use crate::routes::tenant_routes;
+    // ================================================================================================
+    // 📂 REPOSITORY SECTION
+    // ================================================================================================
+    //
+    // Instantiates the Data Access Layer (Repositories).
+    // Each repository provides an abstraction over database operations for specific entities.
+    // They are wrapped in `Arc` (Atomic Reference Counting) to allow thread-safe sharing
+    // across multiple potential threads in the server.
 
     let user_repository = Arc::new(UserRepository::new(db.clone()));
     let user_details_repository = Arc::new(UserDetailsRepository::new(db.clone()));
@@ -144,6 +162,14 @@ pub async fn run_server() -> std::io::Result<()> {
     let user_activity_log_repository = Arc::new(UserActivityLogRepository::new(db.clone()));
     let tenant_repository = Arc::new(TenantRepository::new(db.clone()));
     let user_tenant_repository = Arc::new(UserTenantRepository::new(db.clone()));
+
+    // ================================================================================================
+    // 🧠 USECASE SECTION
+    // ================================================================================================
+    //
+    // Instantiates the Business Logic Layer (UseCases).
+    // UseCases contain the core application rules and orchestrate data flow using Repositories.
+    // Like repositories, they are wrapped in `Arc` for thread-safe sharing.
 
     let user_usecase = Arc::new(UserUseCase::new(user_repository.clone(), user_details_repository.clone()));
     let auth_usecase = Arc::new(AuthUseCase::new(
@@ -155,6 +181,18 @@ pub async fn run_server() -> std::io::Result<()> {
     ));
     let user_details_usecase = Arc::new(UserDetailsUseCase::new(user_details_repository.clone()));
     let tenant_usecase = Arc::new(TenantUseCase::new(tenant_repository.clone()));
+
+    // ================================================================================================
+    // 🚀 SERVER SECTION
+    // ================================================================================================
+    //
+    // Configures and starts the Actix Web server.
+    // 1. Injects shared state (Config, DB, UseCases) into `web::Data`.
+    // 2. Registers global middlewares (Logger, Compression, CORS, Headers).
+    // 3. Defines routing:
+    //    - Health checks ("/")
+    //    - Static files ("/assets")
+    //    - API Routes ("/api") protected by API Keys and JWT.
 
     let secret_key = Arc::new(std::env::var("SECRET_KEY").unwrap_or_else(|_| {
         info!("SECRET_KEY not set; using empty string for development");
@@ -186,7 +224,6 @@ pub async fn run_server() -> std::io::Result<()> {
 
             .route("/", web::get().to(healthcheck))
 
-            // Static files for profile pictures
             .service(
                 actix_files::Files::new("/assets", "assets")
                     .show_files_listing()
@@ -194,7 +231,6 @@ pub async fn run_server() -> std::io::Result<()> {
                     .use_last_modified(true)
             )
             
-            // CORS middleware for cross-origin access
             .wrap(
                 actix_cors::Cors::default()
                     .allow_any_origin()
@@ -203,20 +239,27 @@ pub async fn run_server() -> std::io::Result<()> {
                     .max_age(3600)
             )
 
-            // API key protected routes (login, register, refresh)
             .service(
                 web::scope("/api")
                     .wrap(ApiKeyMiddleware)
-                    .route("/ping", web::get().to(|| async { HttpResponse::Ok().body("pong") }))
                     .configure(auth_routes::configure_api_key_routes)
+                    .configure(tenant_routes::configure_tenant_routes)
             )
             
-            // JWT protected routes (logout, verify, users, tenants)
             .configure(user_routes::configure_user_routes)
             .configure(auth_routes::configure_jwt_routes)
-            .configure(tenant_routes::configure_tenant_routes)
     })
     .bind(("0.0.0.0", 5500))?;
+
+    // ================================================================================================
+    // 🛑 SHUTDOWN SECTION
+    // ================================================================================================
+    //
+    // Handles Graceful Shutdown.
+    // 1. Listens for OS signals (Ctrl+C) and internal health check failures.
+    // 2. Stops the server from accepting new requests upon signal reception.
+    // 3. Waits for active requests to complete (or times out).
+    // 4. Signals the database connection pool to close gracefully.
 
     let srv = server.run();
 
@@ -258,7 +301,6 @@ pub async fn run_server() -> std::io::Result<()> {
     });
 
     let server_result = srv.await;
-
     let _ = shutdown_task.await;
 
     info!("Shutting down server...");

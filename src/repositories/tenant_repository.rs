@@ -52,6 +52,7 @@ impl TenantRepository {
 impl TenantRepositoryTrait for TenantRepository {
     async fn create(&self, req: CreateTenantRequest) -> Result<Tenant, AppError> {
         let tenant = tenant::ActiveModel {
+            id: Set(Uuid::new_v4()),  // Generate UUID in repository
             name: Set(req.name.clone()),
             description: Set(req.description.clone()),
             ..Default::default()
