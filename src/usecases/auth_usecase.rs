@@ -97,24 +97,54 @@ impl AuthUseCase {
                 .await;
             return Err(e);
         }
+        
+        // Validate role
+        let valid_roles = ["user", "admin"];
+        if !valid_roles.contains(&req.role.as_str()) {
+            let err = AppError::ValidationError("Validation Error".to_string());
+            self.log_activity_failure(None, "register", &err, ip_address.clone(), user_agent.clone())
+                .await;
+            return Err(err);
+        }
 
-        // Step 1: Check if user exists globally (by email)
-        let user = match self.repository.find_by_email(&req.email).await? {
+        // Step 1: Check if user exists globally (by email) included soft-deleted
+        // Normalize email to lowercase for case-insensitive comparison
+        let normalized_email = req.email.to_lowercase();
+        let (user, is_restored) = match self.repository.find_by_email_with_deleted(&normalized_email).await? {
             Some(existing_user) => {
-                // User exists, verify password matches (for security)
-                if !password::verify_password(&req.password, &existing_user.password_hash)? {
-                    let err = AppError::Unauthorized("Invalid credentials".to_string());
+                log::info!("Register flow found user: {:?} (Active: {})", existing_user.id, existing_user.deleted_at.is_none());
+                if existing_user.deleted_at.is_some() {
+                    // Restore deleted user
+                    let create_req = CreateUserRequest {
+                        username: req.username.clone(),
+                        email: normalized_email.clone(),
+                        password: req.password.clone(),
+                    };
+                    let restored_user = self.repository.restore(existing_user.id, create_req).await?;
+                    (restored_user, true)
+                } else {
+                    // User exists and is active - email already in use
+                    let err = AppError::Conflict("Email already exists".to_string());
                     self.log_activity_failure(Some(existing_user.id), "register", &err, ip_address, user_agent)
                         .await;
                     return Err(err);
                 }
-                existing_user
             }
             None => {
+                // Check if username exists globally
+                if self.repository.find_by_username(&req.username).await?.is_some() {
+                    let err = AppError::Conflict("Username already exists".to_string());
+                    self.log_activity_failure(None, "register", &err, ip_address.clone(), user_agent.clone())
+                        .await;
+                    return Err(err);
+                }
+
+                log::info!("Registering new user '{}' with role '{}' for tenant '{}'", req.username, req.role, req.tenant_id);
+
                 // User doesn't exist, create new user
                 let create_req = CreateUserRequest {
                     username: req.username.clone(),
-                    email: req.email.clone(),
+                    email: normalized_email.clone(),
                     password: req.password.clone(),
                 };
                 let new_user = self.repository.create(create_req).await?;
@@ -122,7 +152,7 @@ impl AuthUseCase {
                 // Create user_details for new user
                 let _ = self.user_details_repository.create(new_user.id).await?;
                 
-                new_user
+                (new_user, false)
             }
         };
 
@@ -132,11 +162,14 @@ impl AuthUseCase {
             .await?
         {
             Some(_existing_role) => {
-                // User already in tenant
-                let err = AppError::Conflict("User already registered in this tenant".to_string());
-                self.log_activity_failure(Some(user.id), "register", &err, ip_address, user_agent)
-                    .await;
-                return Err(err);
+                if !is_restored {
+                    // User already in tenant and not restored -> Conflict
+                    let err = AppError::Conflict("Email already exists".to_string());
+                    self.log_activity_failure(Some(user.id), "register", &err, ip_address, user_agent)
+                        .await;
+                    return Err(err);
+                }
+                // If restored, allow reusing existing link
             }
             None => {
                 // Assign user to tenant with role
@@ -204,7 +237,7 @@ impl AuthUseCase {
                     .find_by_username(&req.email_or_username)
                     .await?
                     .ok_or_else(|| {
-                        let err = AppError::Unauthorized("Invalid credentials".to_string());
+                        let err = AppError::Unauthorized("Unauthorized".to_string());
                         err
                     })?
             }
@@ -212,7 +245,7 @@ impl AuthUseCase {
 
         // Verify password
         if !password::verify_password(&req.password, &user.password_hash)? {
-            let err = AppError::Unauthorized("Invalid credentials".to_string());
+            let err = AppError::Unauthorized("Unauthorized".to_string());
             self.log_activity_failure(
                 Some(user.id),
                 "login",
@@ -459,13 +492,27 @@ impl AuthUseCase {
 
         // Validate new password matches confirmation
         if req.new_password != req.confirm_new_password {
-            let err = AppError::ValidationError("New passwords do not match".to_string());
+            let err = AppError::ValidationError("Validation Error".to_string());
             self.log_activity_failure(
                 Some(user_id),
                 "change_password",
                 &err,
-                ip_address,
-                user_agent,
+                ip_address.clone(),
+                user_agent.clone(),
+            )
+            .await;
+            return Err(err);
+        }
+
+        // Validate new password is not the same as old password
+        if req.new_password == req.old_password {
+            let err = AppError::ValidationError("Validation Error".to_string());
+            self.log_activity_failure(
+                Some(user_id),
+                "change_password",
+                &err,
+                ip_address.clone(),
+                user_agent.clone(),
             )
             .await;
             return Err(err);
@@ -493,13 +540,13 @@ impl AuthUseCase {
 
         // Verify old password
         if !password::verify_password(&req.old_password, &user.password_hash)? {
-            let err = AppError::Unauthorized("Old password is incorrect".to_string());
+            let err = AppError::Unauthorized("Invalid credentials".to_string());
             self.log_activity_failure(
                 Some(user_id),
                 "change_password",
                 &err,
-                ip_address,
-                user_agent,
+                ip_address.clone(),
+                user_agent.clone(),
             )
             .await;
             return Err(err);
@@ -512,6 +559,11 @@ impl AuthUseCase {
             password: Some(req.new_password),
         };
         self.repository.update(user_id, update_req).await?;
+
+        // Revoke all sessions for the user (security best practice)
+        self.session_repository
+            .delete_all_sessions_for_user(user_id)
+            .await?;
 
         // Log successful password change
         self.log_activity_success(Some(user_id), "change_password", ip_address, user_agent)
@@ -633,6 +685,7 @@ impl AuthUseCase {
             email: user.email,
             created_at: user.created_at,
             updated_at: user.updated_at,
+            role: "user".to_string(),
             details: None, // Will be populated when fetching with user_details
         }
     }
@@ -648,6 +701,7 @@ impl AuthUseCase {
             email: user.email,
             created_at: user.created_at,
             updated_at: user.updated_at,
+            role: "user".to_string(),
             details: user_details.map(|details| UserDetailsResponse {
                 id: details.id,
                 user_id: details.user_id,

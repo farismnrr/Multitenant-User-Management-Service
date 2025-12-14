@@ -5,6 +5,7 @@ use crate::entities::user_details::Model as UserDetails;
 use crate::errors::AppError;
 use crate::repositories::user_repository::UserRepositoryTrait;
 use crate::repositories::user_details_repository::UserDetailsRepositoryTrait;
+use crate::repositories::user_tenant_repository::UserTenantRepositoryTrait;
 use crate::validators::user_validator;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -17,6 +18,7 @@ use uuid::Uuid;
 pub struct UserUseCase {
     repository: Arc<dyn UserRepositoryTrait>,
     user_details_repository: Arc<dyn UserDetailsRepositoryTrait>,
+    user_tenant_repository: Arc<dyn UserTenantRepositoryTrait>,
 }
 
 impl UserUseCase {
@@ -26,13 +28,16 @@ impl UserUseCase {
     ///
     /// * `repository` - Arc-wrapped user repository implementation
     /// * `user_details_repository` - Arc-wrapped user_details repository implementation
+    /// * `user_tenant_repository` - Arc-wrapped user_tenant repository implementation
     pub fn new(
         repository: Arc<dyn UserRepositoryTrait>,
         user_details_repository: Arc<dyn UserDetailsRepositoryTrait>,
+        user_tenant_repository: Arc<dyn UserTenantRepositoryTrait>,
     ) -> Self {
         Self { 
             repository,
             user_details_repository,
+            user_tenant_repository,
         }
     }
 
@@ -47,7 +52,7 @@ impl UserUseCase {
     /// # Returns
     ///
     /// Returns `UserResponse` with nested user_details if found, or `AppError::NotFound` if the user doesn't exist.
-    pub async fn get_user(&self, id: Uuid) -> Result<UserResponse, AppError> {
+    pub async fn get_user(&self, id: Uuid, tenant_id: Uuid) -> Result<UserResponse, AppError> {
         let user = self
             .repository
             .find_by_id(id)
@@ -56,8 +61,14 @@ impl UserUseCase {
 
         // Fetch user_details
         let user_details = self.user_details_repository.find_by_user_id(user.id).await?;
+        
+        // Fetch role
+        let role_result = self.user_tenant_repository.get_user_role_in_tenant(user.id, tenant_id).await?;
+        log::info!("get_user: user_id={}, tenant_id={}, fetched_role={:?}", user.id, tenant_id, role_result);
+        
+        let role = role_result.unwrap_or_else(|| "user".to_string());
 
-        Ok(Self::user_to_response(user, user_details))
+        Ok(Self::user_to_response(user, user_details, role))
     }
 
     /// Retrieves all users from the database.
@@ -65,13 +76,20 @@ impl UserUseCase {
     /// # Returns
     ///
     /// Returns a vector of `UserResponse` containing all users with their user_details.
-    pub async fn get_all_users(&self) -> Result<Vec<UserResponse>, AppError> {
+    pub async fn get_all_users(&self, tenant_id: Uuid, requesting_user_role: &str) -> Result<Vec<UserResponse>, AppError> {
+        log::info!("get_all_users: requesting_role='{}'", requesting_user_role);
+        if requesting_user_role != "admin" {
+            return Err(AppError::Forbidden("Insufficient permissions".to_string()));
+        }
+
         let users = self.repository.find_all().await?;
 
         let mut responses = Vec::new();
         for user in users {
             let user_details = self.user_details_repository.find_by_user_id(user.id).await?;
-            responses.push(Self::user_to_response(user, user_details));
+            let role = self.user_tenant_repository.get_user_role_in_tenant(user.id, tenant_id).await?
+                .unwrap_or_else(|| "user".to_string());
+            responses.push(Self::user_to_response(user, user_details, role));
         }
 
         Ok(responses)
@@ -91,9 +109,12 @@ impl UserUseCase {
         &self,
         id: Uuid,
         req: UpdateUserRequest,
+        tenant_id: Uuid,
     ) -> Result<UserResponse, AppError> {
+        log::info!("update_user: req={:?}", req);
         // Validate input if provided
         if let Some(ref username) = req.username {
+            log::info!("Validating username: {}", username);
             user_validator::validate_username(username)?;
         }
         if let Some(ref email) = req.email {
@@ -108,8 +129,12 @@ impl UserUseCase {
 
         // Fetch user_details
         let user_details = self.user_details_repository.find_by_user_id(user.id).await?;
+        
+        // Fetch role
+        let role = self.user_tenant_repository.get_user_role_in_tenant(user.id, tenant_id).await?
+            .unwrap_or_else(|| "user".to_string());
 
-        Ok(Self::user_to_response(user, user_details))
+        Ok(Self::user_to_response(user, user_details, role))
     }
 
     /// Deletes a user by their ID.
@@ -127,7 +152,7 @@ impl UserUseCase {
 
     /// Converts a User entity to UserResponse DTO with optional user_details.
     /// Converts relative profile picture paths to full URLs.
-    fn user_to_response(user: User, user_details: Option<UserDetails>) -> UserResponse {
+    fn user_to_response(user: User, user_details: Option<UserDetails>, role: String) -> UserResponse {
         use crate::utils::url_helper::to_full_url;
         
         UserResponse {
@@ -136,6 +161,7 @@ impl UserUseCase {
             email: user.email,
             created_at: user.created_at,
             updated_at: user.updated_at,
+            role,
             details: user_details.map(|details| {
                 UserDetailsResponse {
                     id: details.id,

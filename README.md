@@ -1,17 +1,17 @@
-# Multi Tenant User Management Plugin
+# Multi-Tenant User Management Service
 
-A production-ready, general-purpose user authentication and management service built with Rust and Actix-web. Designed to be easily plugged into any application requiring secure user management, JWT authentication, and role-based access control.
+A production-ready, standalone user authentication and management service built with Rust and Actix-web. Designed to be easily plugged into any application requiring secure user management, JWT authentication, and role-based access control.
 
 ## Key Features
 
-- **Auth**: JWT (Access/Refresh), RBAC, Session Management
-- **Multi-tenancy**: Tenant-scoped users, Tenant Isolation, Role-based Access per Tenant
-- **Security**: Argon2, Rate Limiting, API Key Protection
-- **Ops**: Structured Logging, Health Checks, Graceful Shutdown, Soft Deletes
+- **Auth**: JWT (Access & Refresh Tokens), Session Management, RBAC
+- **Multi-tenancy**: Tenant-scoped Users, Tenant Isolation
+- **Security**: Argon2 Password Hashing, Rate Limiting, API Key Protection
+- **Operations**: Structured Logging, Health Checks, Graceful Shutdown, Soft Deletes
 
 ## API Structure
 
-The API is divided into two distinct scopes:
+This service exposes two API scopes with different authentication mechanisms:
 
 1.  **Public / API Key Protected (`/api` prefix)**
     *   Requires `X-API-Key` header.
@@ -21,55 +21,59 @@ The API is divided into two distinct scopes:
     *   Requires `Authorization: Bearer <token>` header.
     *   Endpoints: `/auth/logout`, `/auth/verify`, `/auth/change-password`, `/users/*`, `/tenants/*`.
 
-## Quick Start
+## How to Run (Local Development)
 
-### 1. Setup Environment
+The following steps describe a local development setup.
 
-Ensure you have Rust and PostgreSQL installed. Then configure your environment using the provided example:
+### 1. Prerequisites
+
+Ensure you have the following installed:
+- **Rust** & **Cargo**
+- **Make**
+- **Docker** (Required for Database)
+
+### 2. Start Database
+
+Start a PostgreSQL container (required by `Makefile`):
+
+```bash
+docker run --name postgres-sql -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres:alpine
+```
+
+### 3. Configuration
+
+Set up your environment variables:
 
 ```bash
 cp .env.example .env
-# Edit .env with your specific configuration (DB credentials, secrets, etc.)
+# Edit .env if you need to change secrets or ports (defaults work for dev)
 ```
 
-### 2. Database Migration
+### 4. Database Migration
 
 Initialize the database schema:
 
 ```bash
-make migrate-up       # Run migrations
-make migrate-fresh    # Reset DB and re-run migrations
+make migrate-up
 ```
 
-### 3. Run Server
+### 5. Run Application
 
-**Development (Hot Reload):**
+**Local Development (Hot Reload):**
 ```bash
 make dev
 ```
+The server will be available at `http://0.0.0.0:5500`.
 
-**Production:**
+**Docker (Local / Development):**
 ```bash
-make build
-./target/release/user-auth-plugin
+make start-compose
 ```
-
-The server runs on `http://0.0.0.0:5500`.
-
-### 4. Docker (Recommended)
-
-Run via Docker Compose (using pre-built image from GHCR):
-
-```bash
-make start-compose    # Starts the stack
-make stop-compose     # Stops the stack
-make update           # Update to latest version
-```
-- Uses `network_mode: "host"` to connect to your local Postgres.
-- Mounts `./logs` and `./assets` for persistence.
-- Runs as your current user (1000:1000) to avoid permission issues.
+This runs the application using Docker Compose.
 
 ## Available Commands
+
+The following Makefile commands are provided for development convenience:
 
 | Command | Description |
 |---------|-------------|

@@ -1,7 +1,16 @@
 use serde::{Deserialize, Serialize};
 use crate::dtos::user_dto::UserResponse;
 
-/// Request DTO for user login.
+/// Request DTO for user login (JSON Body).
+///
+/// tenant_id is extracted from headers/middleware.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct LoginRequestJson {
+    pub email_or_username: String,
+    pub password: String,
+}
+
+/// Request DTO for user login (Internal).
 ///
 /// Accepts either email or username for authentication.
 /// tenant_id is required to validate user's access to specific tenant.
@@ -12,7 +21,18 @@ pub struct LoginRequest {
     pub tenant_id: uuid::Uuid,
 }
 
-/// Request DTO for user registration.
+/// Request DTO for user registration (JSON Body).
+///
+/// tenant_id is extracted from headers/middleware, so it's not in the body.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct RegisterRequestJson {
+    pub username: String,
+    pub email: String,
+    pub password: String,
+    pub role: String,
+}
+
+/// Request DTO for user registration (Internal).
 ///
 /// All fields are required for creating a new user account.
 /// tenant_id and role are used to assign user to a tenant with specific role.

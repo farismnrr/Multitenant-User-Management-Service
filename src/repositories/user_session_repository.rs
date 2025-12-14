@@ -30,6 +30,9 @@ pub trait UserSessionRepositoryTrait: Send + Sync {
 
     /// Deletes a specific session by ID.
     async fn delete_session(&self, id: Uuid) -> Result<(), AppError>;
+
+    /// Deletes all sessions for a specific user.
+    async fn delete_all_sessions_for_user(&self, user_id: Uuid) -> Result<(), AppError>;
 }
 
 /// User session repository implementation using SeaORM.
@@ -103,6 +106,16 @@ impl UserSessionRepositoryTrait for UserSessionRepository {
                 id
             )));
         }
+
+        Ok(())
+    }
+
+    async fn delete_all_sessions_for_user(&self, user_id: Uuid) -> Result<(), AppError> {
+        UserSessionEntity::delete_many()
+            .filter(user_session::Column::UserId.eq(user_id))
+            .exec(&*self.db)
+            .await
+            .map_err(|e| AppError::DatabaseError(e.to_string()))?;
 
         Ok(())
     }

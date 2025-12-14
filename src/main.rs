@@ -17,7 +17,10 @@ mod errors;
 mod utils;
 mod validators;
 
-#[actix_web::main]
-async fn main() -> std::io::Result<()> {
+    // Initialize environment variables
+    std::env::set_var("LOG_LEVEL", "info");
+    // Do NOT call env_logger::init() here, let server.rs handle it to avoid double-init panic
+    
+    log::info!("Server Version: VERIFIED_FINAL");
     server::run_server().await
 }

@@ -10,7 +10,7 @@ pub struct ErrorResponseDTO<T>
 where
     T: Serialize,
 {
-    pub success: bool,
+    pub status: bool,
     pub message: &'static str,
     pub details: Option<T>,
     pub result: Option<T>,
@@ -24,7 +24,7 @@ where
     /// Creates a new error response with only a message.
     pub fn new(message: &'static str) -> Self {
         Self {
-            success: false,
+            status: false,
             message,
             details: None,
             result: None,
@@ -41,7 +41,7 @@ pub struct SuccessResponseDTO<T>
 where
     T: Serialize,
 {
-    pub success: bool,
+    pub status: bool,
     pub message: &'static str,
     pub data: Option<T>,
 }
@@ -54,7 +54,7 @@ where
     /// Creates a new success response with a message and data payload.
     pub fn new(message: &'static str, data: T) -> Self {
         Self {
-            success: true,
+            status: true,
             message,
             data: Some(data),
         }
@@ -68,7 +68,7 @@ impl SuccessResponseDTO<()> {
     #[allow(dead_code)]
     pub fn no_data(message: &'static str) -> Self {
         Self {
-            success: true,
+            status: true,
             message,
             data: None,
         }

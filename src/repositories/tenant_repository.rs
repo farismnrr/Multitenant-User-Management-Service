@@ -19,6 +19,9 @@ pub trait TenantRepositoryTrait: Send + Sync {
     
     /// Finds a tenant by their name.
     async fn find_by_name(&self, name: &str) -> Result<Option<Tenant>, AppError>;
+
+    /// Finds a tenant by their name including deleted ones.
+    async fn find_by_name_with_deleted(&self, name: &str) -> Result<Option<Tenant>, AppError>;
     
     /// Retrieves all non-deleted tenants from the database.
     async fn find_all(&self) -> Result<Vec<Tenant>, AppError>;
@@ -28,6 +31,9 @@ pub trait TenantRepositoryTrait: Send + Sync {
     
     /// Soft deletes a tenant by setting deleted_at timestamp.
     async fn delete(&self, id: Uuid) -> Result<(), AppError>;
+
+    /// Restores a soft-deleted tenant.
+    async fn restore(&self, id: Uuid) -> Result<(), AppError>;
 }
 
 /// Tenant repository implementation using SeaORM.
@@ -96,6 +102,16 @@ impl TenantRepositoryTrait for TenantRepository {
         Ok(tenant)
     }
 
+    async fn find_by_name_with_deleted(&self, name: &str) -> Result<Option<Tenant>, AppError> {
+        let tenant = TenantEntity::find()
+            .filter(tenant::Column::Name.eq(name))
+            .one(&*self.db)
+            .await
+            .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+
+        Ok(tenant)
+    }
+
     async fn find_all(&self) -> Result<Vec<Tenant>, AppError> {
         let tenants = TenantEntity::find()
             .filter(tenant::Column::DeletedAt.is_null())
@@ -149,6 +165,28 @@ impl TenantRepositoryTrait for TenantRepository {
 
         let mut tenant: tenant::ActiveModel = existing.unwrap().into();
         tenant.deleted_at = Set(Some(chrono::Utc::now()));
+
+        tenant
+            .update(&*self.db)
+            .await
+            .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+
+        Ok(())
+    }
+
+    async fn restore(&self, id: Uuid) -> Result<(), AppError> {
+        let existing = TenantEntity::find_by_id(id)
+             .one(&*self.db)
+             .await
+             .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+
+        if existing.is_none() {
+            return Err(AppError::NotFound(format!("Tenant with id {} not found", id)));
+        }
+        
+        // We use ActiveModel to update
+        let mut tenant: tenant::ActiveModel = existing.unwrap().into();
+        tenant.deleted_at = Set(None);
 
         tenant
             .update(&*self.db)

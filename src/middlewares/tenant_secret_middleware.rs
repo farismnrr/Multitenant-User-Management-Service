@@ -80,7 +80,7 @@ where
             let res = HttpResponse::InternalServerError()
                 .insert_header((header::CONTENT_TYPE, "application/json"))
                 .json(ErrorResponseDTO {
-                    success: false,
+                    status: false,
                     message: "TENANT_SECRET_KEY not configured",
                     details: None::<()>,
                     result: None,
@@ -92,14 +92,15 @@ where
         let is_valid = secret_key_value == expected_key;
         if !is_valid {
             debug!("[Middleware | TenantSecret] Invalid tenant secret key for '{}'", path);
+            let response = ErrorResponseDTO::<()> {
+                status: false,
+                message: "Unauthorized",
+                details: None,
+                result: None,
+            };
             let res = HttpResponse::Unauthorized()
                 .insert_header((header::CONTENT_TYPE, "application/json"))
-                .json(ErrorResponseDTO {
-                    success: false,
-                    message: "Invalid tenant secret key",
-                    details: None::<()>,
-                    result: None,
-                });
+                .json(response);
             return Box::pin(async move { Ok(req.into_response(res.map_into_right_body())) });
         }
 

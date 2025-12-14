@@ -1,22 +1,27 @@
-//! API Key Authentication Middleware
-//!
-//! This middleware validates API keys from the X-API-Key header for protected endpoints.
-
 use std::env;
+use std::rc::Rc;
 use actix_web::{
     body::EitherBody,
     dev::{Service, ServiceRequest, ServiceResponse, Transform},
     http::header,
-    Error, HttpResponse,
+    Error, HttpResponse, web, HttpMessage,
 };
 use futures_util::future::{ok, Ready, LocalBoxFuture};
-use log::debug;
+use log::{debug, error};
+use sea_orm::{DatabaseConnection, EntityTrait, QueryOrder};
 use crate::dtos::response_dto::ErrorResponseDTO;
+use crate::entities::tenant;
 
 /// API key authentication middleware.
 ///
 /// This middleware checks for a valid API key in the X-API-Key header.
 /// The expected API key is read from the `API_KEY` environment variable.
+/// If valid, it also resolves the default tenant and injects `tenant_id` into request extensions.
+
+/// Wrapper for Tenant ID in request extensions to avoid TypeMap conflicts with User ID
+#[derive(Clone, Copy, Debug)]
+pub struct TenantId(pub uuid::Uuid);
+
 #[derive(Clone)]
 pub struct ApiKeyMiddleware;
 
@@ -33,14 +38,16 @@ where
 
     fn new_transform(&self, service: S) -> Self::Future {
         let api_key = env::var("API_KEY").unwrap_or_default();
-        ok(ApiKeyMiddlewareService { service, api_key })
+        ok(ApiKeyMiddlewareService { 
+            service: Rc::new(service), 
+            api_key 
+        })
     }
 }
 
 /// Service wrapper for API key validation.
-#[derive(Clone)]
 pub struct ApiKeyMiddlewareService<S> {
-    service: S,
+    service: Rc<S>,
     api_key: String,
 }
 
@@ -68,6 +75,7 @@ where
             .and_then(|v| v.to_str().ok())
             .map(str::trim)
             .unwrap_or("");
+        
         debug!("[Middleware | ApiKey] call - path='{}' x_api_key_present={} key_len={} expected_key_set={}",
             path, has_api_key_header, api_key_value.len(), !expected_key.is_empty());
 
@@ -77,7 +85,7 @@ where
             let res = HttpResponse::Unauthorized()
                 .insert_header((header::CONTENT_TYPE, "application/json"))
                 .json(ErrorResponseDTO {
-                    success: false,
+                    status: false,
                     message: "Unauthorized",
                     details: None::<()>,
                     result: None,
@@ -85,10 +93,35 @@ where
             return Box::pin(async move { Ok(req.into_response(res.map_into_right_body())) });
         }
 
-        debug!("[Middleware | ApiKey] Authorized request to '{}'", path);
-        let fut = self.service.call(req);
+        // Get DB connection to fetch default tenant
+        let db = req.app_data::<web::Data<DatabaseConnection>>().cloned();
+        let service = self.service.clone();
+
         Box::pin(async move {
-            let res = fut.await?;
+            if let Some(db) = db {
+                // Fetch the first tenant created (acting as default tenant for simple API Key auth)
+                match tenant::Entity::find()
+                    .order_by_asc(tenant::Column::CreatedAt)
+                    .one(db.as_ref())
+                    .await 
+                {
+                    Ok(Some(tenant)) => {
+                        debug!("[Middleware | ApiKey] Resolved Tenant ID: {}", tenant.id);
+                        req.extensions_mut().insert(TenantId(tenant.id));
+                    },
+                    Ok(None) => {
+                        debug!("[Middleware | ApiKey] No tenant found in database. Proceeding without Tenant ID.");
+                    },
+                    Err(e) => {
+                        error!("[Middleware | ApiKey] Database error fetching tenant: {}", e);
+                    }
+                }
+            } else {
+                 error!("[Middleware | ApiKey] Database connection not found in app_data");
+            }
+
+            debug!("[Middleware | ApiKey] Authorized request to '{}'", path);
+            let res = service.call(req).await?;
             Ok(res.map_into_left_body())
         })
     }

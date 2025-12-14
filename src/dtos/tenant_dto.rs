@@ -35,6 +35,7 @@ pub struct TenantResponse {
     pub name: String,
     pub description: Option<String>,
     pub deleted_at: Option<DateTime<Utc>>,
+    pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -45,6 +46,7 @@ impl From<crate::entities::tenant::Model> for TenantResponse {
             id: tenant.id,
             name: tenant.name,
             description: tenant.description,
+            is_active: tenant.deleted_at.is_none(),
             deleted_at: tenant.deleted_at,
             created_at: tenant.created_at,
             updated_at: tenant.updated_at,

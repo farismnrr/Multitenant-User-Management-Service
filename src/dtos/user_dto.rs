@@ -35,5 +35,6 @@ pub struct UserResponse {
     pub email: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub role: String,
     pub details: Option<UserDetailsResponse>,
 }

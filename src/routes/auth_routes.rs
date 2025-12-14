@@ -1,43 +1,51 @@
 use crate::controllers::auth_controller::{change_password, login, logout, refresh, register, verify};
 use crate::middlewares::auth_middleware;
+use crate::middlewares::api_key_middleware::ApiKeyMiddleware;
 use actix_web::web;
 use actix_web_httpauth::middleware::HttpAuthentication;
 
-/// Configures API key protected authentication routes.
+/// Configures authentication routes (ApiKey and JWT protected).
 ///
-/// # Routes (under /api scope)
+/// # Routes (under /auth scope)
 ///
-/// - `POST /api/auth/register` - Register a new user (X-API-Key auth)
-/// - `POST /api/auth/login` - Authenticate and receive tokens (X-API-Key auth)
-/// - `POST /api/auth/refresh` - Refresh access token using refresh token cookie (X-API-Key auth)
+/// **ApiKey Protected:**
+/// - `POST /register`
+/// - `POST /login`
+/// - `POST /refresh`
 ///
-/// All routes require X-API-Key header authentication.
-pub fn configure_api_key_routes(cfg: &mut web::ServiceConfig) {
-    cfg.service(
-        web::scope("/auth")
-            .route("/register", web::post().to(register))
-            .route("/login", web::post().to(login))
-            .route("/refresh", web::post().to(refresh))
-    );
-}
-
-/// Configures JWT protected authentication routes.
-///
-/// # Routes (at root level)
-///
-/// - `POST /auth/logout` - Clear refresh token cookie (JWT auth)
-/// - `POST /auth/verify` - Verify JWT token and get user data (JWT auth)
-/// - `PUT /auth/change-password` - Change user password (JWT auth)
-///
-/// All routes require JWT Bearer token authentication.
-pub fn configure_jwt_routes(cfg: &mut web::ServiceConfig) {
+/// **JWT Protected:**
+/// - `POST /logout`
+/// - `POST /verify`
+/// - `PUT /change-password`
+pub fn configure_routes(cfg: &mut web::ServiceConfig) {
     let jwt_auth = HttpAuthentication::bearer(auth_middleware::validator);
     
     cfg.service(
         web::scope("/auth")
-            .wrap(jwt_auth)
-            .route("/logout", web::post().to(logout))
-            .route("/verify", web::post().to(verify))
-            .route("/change-password", web::put().to(change_password))
+            // ApiKey protected routes
+            .service(
+                web::resource("/register")
+                    .wrap(ApiKeyMiddleware)
+                    .route(web::post().to(register))
+            )
+            .service(
+                web::resource("/login")
+                    .wrap(ApiKeyMiddleware)
+                    .route(web::post().to(login))
+            )
+            .service(
+                web::resource("/refresh")
+                    .wrap(ApiKeyMiddleware)
+                    .route(web::get().to(refresh))
+            )
+            // JWT protected routes
+            .service(
+                web::scope("") // Nested scope to apply JWT middleware to multiple routes? 
+                               // Or just resource chaining. Logout/Verify/ChangePW
+                .wrap(jwt_auth)
+                .route("/logout", web::delete().to(logout))
+                .route("/verify", web::get().to(verify))
+                .route("/reset", web::put().to(change_password))
+            )
     );
 }

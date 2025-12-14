@@ -1,0 +1,217 @@
+# ENDPOINT: POST /auth/login
+
+## Description
+Authenticate user and receive access token.
+
+## Test Scenarios
+
+### 1. Missing API key
+- **URL**: `http://localhost:5500/auth/login`
+- **Method**: `POST`
+- **Pre-conditions**: None.
+- **Request Body**:
+  ```json
+  {
+    "email_or_username": "...",
+    "password": "..."
+  }
+  ```
+- **Expected Response**:
+  ```json
+  {
+    "status": false,
+    "message": "Unauthorized"
+  }
+  ```
+  *(Status: 401)*
+- **Side Effects**: None.
+
+### 2. Account Security: Login to Banned/Soft-Deleted Account
+- **URL**: `http://localhost:5500/auth/login`
+- **Method**: `POST`
+- **Pre-conditions**: User is banned/deleted.
+- **Request Body**:
+  ```json
+  {
+    "email_or_username": "<banned_user>",
+    "password": "<password>"
+  }
+  ```
+- **Expected Response**:
+  ```json
+  {
+    "status": false,
+    "message": "Forbidden" // or Unauthorized
+  }
+  ```
+  *(Status: 403 or 401)*
+- **Side Effects**: None.
+
+### 3. Missing credentials
+- **URL**: `http://localhost:5500/auth/login`
+- **Method**: `POST`
+- **Pre-conditions**: None.
+- **Request Body**:
+  ```json
+  {
+    "email_or_username": "user"
+    // Missing password
+  }
+  ```
+- **Expected Response**:
+  ```json
+  {
+    "status": false,
+    "message": "Bad Request"
+  }
+  ```
+  *(Status: 400)*
+- **Side Effects**: None.
+
+### 4. Invalid email format
+- **URL**: `http://localhost:5500/auth/login`
+- **Method**: `POST`
+- **Pre-conditions**: None.
+- **Request Body**:
+  ```json
+  {
+    "email_or_username": "invalid-email-format",
+    "password": "..."
+  }
+  ```
+- **Expected Response**:
+  ```json
+  {
+    "status": false,
+    "message": "Unauthorized"
+  }
+  ```
+  *(Status: 401)*
+- **Side Effects**: None.
+
+### 5. Wrong password
+- **URL**: `http://localhost:5500/auth/login`
+- **Method**: `POST`
+- **Pre-conditions**:
+  - User exists.
+- **Request Body**:
+  ```json
+  {
+    "email_or_username": "<email>",
+    "password": "WrongPassword"
+  }
+  ```
+- **Expected Response**:
+  ```json
+  {
+    "status": false,
+    "message": "Unauthorized"
+  }
+  ```
+  *(Status: 401)*
+- **Side Effects**: None.
+
+### 6. Non-existent user
+- **URL**: `http://localhost:5500/auth/login`
+- **Method**: `POST`
+- **Pre-conditions**: None.
+- **Request Body**:
+  ```json
+  {
+    "email_or_username": "non-existent",
+    "password": "..."
+  }
+  ```
+- **Expected Response**:
+  ```json
+  {
+    "status": false,
+    "message": "Unauthorized" // or Not Found
+  }
+  ```
+  *(Status: 401 or 404)*
+- **Side Effects**: None.
+
+### 7. Security: Brute force protection check
+- **URL**: `http://localhost:5500/auth/login`
+- **Method**: `POST`
+- **Pre-conditions**: Repeated failed attempts.
+- **Request Body**:
+  ```json
+  {
+    "email_or_username": "<user>",
+    "password": "<password>"
+  }
+  ```
+- **Expected Response**:
+  ```json
+  {
+    "status": false,
+    "message": "Too Many Requests"
+  }
+  ```
+  *(Status: 429)*
+- **Side Effects**: None.
+
+### 8. Successful login with email
+- **URL**: `http://localhost:5500/auth/login`
+- **Method**: `POST`
+- **Pre-conditions**:
+  - User exists.
+- **Request Body**:
+  ```json
+  {
+    "email_or_username": "<email>",
+    "password": "<correct_password>"
+  }
+  ```
+- **Expected Response**:
+  ```json
+  {
+    "status": true,
+    "message": "Login successful",
+    "data": { "access_token": "..." }
+  }
+  ```
+  *(Status: 200)*
+- **Side Effects**:
+  - Refresh token cookie set.
+  - Session created.
+
+### 9. Successful login with username
+- **URL**: `http://localhost:5500/auth/login`
+- **Method**: `POST`
+- **Pre-conditions**:
+  - User exists.
+- **Request Body**:
+  ```json
+  {
+    "email_or_username": "<username>",
+    "password": "<correct_password>"
+  }
+  ```
+- **Expected Response**:
+  ```json
+  {
+    "status": true,
+    "message": "Login successful"
+  }
+  ```
+  *(Status: 200)*
+- **Side Effects**:
+  - Refresh token cookie set.
+  - Session created.
+
+### 10. Usability: Input trimming
+- **URL**: `http://localhost:5500/auth/login`
+- **Method**: `POST`
+- **Pre-conditions**: None.
+- **Request Body**:
+  ```json
+  {
+    "email_or_username": "  user  ",
+    "password": "..."
+  }
+  ```
+- **Expected Response**: Success (200).
+- **Side Effects**: Session created.

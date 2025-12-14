@@ -37,12 +37,44 @@ impl TenantUseCase {
     pub async fn create_tenant(&self, req: CreateTenantRequest) -> Result<(TenantResponse, bool), AppError> {
         // Validate name length
         if req.name.is_empty() || req.name.len() > 255 {
-            return Err(AppError::ValidationError("Name must be between 1 and 255 characters".to_string()));
+            return Err(AppError::ValidationError("Validation Error".to_string()));
         }
 
-        // Check if tenant name already exists
-        if let Some(existing_tenant) = self.tenant_repo.find_by_name(&req.name).await? {
-            // Return existing tenant with false flag (not created)
+        // Check if tenant name already exists (including deleted)
+        if let Some(existing_tenant) = self.tenant_repo.find_by_name_with_deleted(&req.name).await? {
+            // If tenant is deleted, restore it
+            if existing_tenant.deleted_at.is_some() {
+                let updated_req = UpdateTenantRequest {
+                    name: Some(req.name),
+                    description: req.description.clone(),
+                };
+                
+                // We need to support "restoring" in repository or handle it via update.
+                // However, standard update checks for id existence first.
+                // Since we found it, it exists.
+                // We need to set deleted_at to None.
+                // But update DTO doesn't support setting deleted_at currently.
+                // We might need a restore method in repository.
+                // OR we can manually update via repository if we expose a method, OR assume standard update handles it?
+                // Standard update logic in repo:
+                // tenant.updated_at = now
+                // tenant.name = ...
+                // It does NOT touch deleted_at.
+                
+                // Let's implement restore in repository is cleanest.
+                // For now, let's assume we add restore method.
+                self.tenant_repo.restore(existing_tenant.id).await?;
+                
+                // After restore, we might want to update description if provided.
+                if req.description.is_some() {
+                    self.tenant_repo.update(existing_tenant.id, updated_req).await?;
+                }
+                
+                let restored = self.tenant_repo.find_by_id(existing_tenant.id).await?.unwrap();
+                return Ok((TenantResponse::from(restored), true)); // Treated as created (restored)
+            }
+
+            // Return existing active tenant with false flag (not created)
             return Ok((TenantResponse::from(existing_tenant), false));
         }
 
@@ -99,7 +131,7 @@ impl TenantUseCase {
         // Validate name length if provided
         if let Some(ref name) = req.name {
             if name.is_empty() || name.len() > 255 {
-                return Err(AppError::ValidationError("Name must be between 1 and 255 characters".to_string()));
+                return Err(AppError::ValidationError("Validation Error".to_string()));
             }
         }
 

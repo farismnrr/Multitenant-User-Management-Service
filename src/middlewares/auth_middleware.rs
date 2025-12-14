@@ -1,5 +1,4 @@
 use actix_web::{dev::ServiceRequest, Error, HttpMessage};
-use actix_web::error::ErrorUnauthorized;
 use actix_web_httpauth::extractors::bearer::BearerAuth;
 use uuid::Uuid;
 use crate::utils::jwt::JwtService;
@@ -34,9 +33,26 @@ pub async fn validator(
                     req.extensions_mut().insert(user_id);
                     Ok(req)
                 }
-                Err(_) => Err((ErrorUnauthorized("Invalid user ID in token"), req)),
+                Err(_) => {
+                    let err = actix_web::error::InternalError::from_response(
+                        "Invalid user ID", 
+                        actix_web::HttpResponse::Unauthorized()
+                            .content_type("application/json")
+                            .body(r#"{"status":false,"message":"Unauthorized","details":"Invalid user ID","result":null}"#)
+                    ).into();
+                    Err((err, req))
+                }
             }
         }
-        Err(e) => Err((ErrorUnauthorized(format!("Invalid token: {}", e)), req)),
+        Err(e) => {
+            let err = actix_web::error::InternalError::from_response(
+                e.to_string(), 
+                actix_web::HttpResponse::Unauthorized()
+                    .content_type("application/json")
+                    .body(format!(r#"{{"status":false,"message":"Unauthorized","details":"{}","result":null}}"#, e))
+            ).into();
+            Err((err, req))
+        }
     }
 }
+

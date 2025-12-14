@@ -1,7 +1,7 @@
 use crate::controllers::tenant_controller;
 use crate::middlewares::auth_middleware::validator;
 use crate::middlewares::tenant_secret_middleware::TenantSecretMiddleware;
-use actix_web::web;
+use actix_web::{web, guard};
 use actix_web_httpauth::middleware::HttpAuthentication;
 
 /// Configures tenant routes.
@@ -21,6 +21,7 @@ pub fn configure_tenant_routes(cfg: &mut web::ServiceConfig) {
             // create_tenant with tenant secret key authentication
             .service(
                 web::resource("")
+                    .guard(guard::Post())
                     .route(web::post().to(tenant_controller::create_tenant))
                     .wrap(tenant_secret_auth)
             )

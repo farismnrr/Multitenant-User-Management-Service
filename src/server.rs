@@ -23,7 +23,7 @@ use crate::routes::user_routes;
 use crate::routes::auth_routes;
 use crate::routes::tenant_routes;
 
-use crate::middlewares::api_key_middleware::ApiKeyMiddleware;
+
 use crate::middlewares::powered_by_middleware::PoweredByMiddleware;
 use crate::middlewares::request_logger_middleware::RequestLoggerMiddleware;
 use crate::infrastructures::postgres_connection;
@@ -133,7 +133,8 @@ pub async fn run_server() -> std::io::Result<()> {
             .target(env_logger::Target::Pipe(Box::new(dual_writer)))
             .init();
     });
-
+    
+    info!("Server Version: VERIFIED_FINAL");
     info!("🟢 Starting server initialization");
     info!("📝 Logging to file: {}", log_file_path);
 
@@ -171,7 +172,11 @@ pub async fn run_server() -> std::io::Result<()> {
     // UseCases contain the core application rules and orchestrate data flow using Repositories.
     // Like repositories, they are wrapped in `Arc` for thread-safe sharing.
 
-    let user_usecase = Arc::new(UserUseCase::new(user_repository.clone(), user_details_repository.clone()));
+    let user_usecase = Arc::new(UserUseCase::new(
+        user_repository.clone(),
+        user_details_repository.clone(),
+        user_tenant_repository.clone()
+    ));
     let auth_usecase = Arc::new(AuthUseCase::new(
         user_repository.clone(),
         user_details_repository.clone(),
@@ -213,6 +218,12 @@ pub async fn run_server() -> std::io::Result<()> {
         App::new()
             .app_data(web::Data::from(secret_for_factory.clone()))
             .app_data(web::Data::from(db_for_factory.clone()))
+            .app_data(web::JsonConfig::default()
+                .error_handler(crate::errors::json_error_handler::json_error_handler)
+            )
+            .app_data(web::PathConfig::default()
+                .error_handler(crate::errors::path_error_handler::path_error_handler)
+            )
 
             .app_data(web::Data::new(user_usecase_for_factory.clone()))
             .app_data(web::Data::new(auth_usecase_for_factory.clone()))
@@ -241,13 +252,13 @@ pub async fn run_server() -> std::io::Result<()> {
 
             .service(
                 web::scope("/api")
-                    .wrap(ApiKeyMiddleware)
-                    .configure(auth_routes::configure_api_key_routes)
                     .configure(tenant_routes::configure_tenant_routes)
+                    .configure(user_routes::configure_user_routes)
             )
             
-            .configure(user_routes::configure_user_routes)
-            .configure(auth_routes::configure_jwt_routes)
+            // .configure(user_routes::configure_user_routes) // MOVED OUT
+            // .configure(auth_routes::configure_jwt_routes) // REPLACED
+            .configure(auth_routes::configure_routes)
     })
     .bind(("0.0.0.0", 5500))?;
 

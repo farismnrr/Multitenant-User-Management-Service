@@ -5,4 +5,7 @@ assets/
 logs/
 coverage/
 
+Dockerfile
+entrypoint.sh
+
 .env

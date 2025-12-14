@@ -2,6 +2,7 @@ use crate::dtos::user_details_dto::{UpdateUserDetailsRequest, UserDetailsRespons
 use crate::entities::user_details::Model as UserDetails;
 use crate::errors::AppError;
 use crate::repositories::user_details_repository::UserDetailsRepositoryTrait;
+use crate::validators::user_validator;
 use std::sync::Arc;
 use uuid::Uuid;
 use actix_multipart::Multipart;
@@ -40,6 +41,19 @@ impl UserDetailsUseCase {
         user_id: Uuid,
         req: UpdateUserDetailsRequest,
     ) -> Result<UserDetailsResponse, AppError> {
+        log::info!("update_user_details: req={:?}", req);
+        if let Some(ref name) = req.full_name {
+            user_validator::validate_no_xss(name)?;
+        }
+
+        if let Some(ref phone) = req.phone_number {
+            user_validator::validate_no_xss(phone)?;
+            user_validator::validate_phone(phone)?;
+        }
+        if let Some(ref address) = req.address {
+             user_validator::validate_no_xss(address)?;
+        }
+
         let user_details = self.repository.update(
             user_id,
             req.full_name,
@@ -97,7 +111,7 @@ impl UserDetailsUseCase {
 
             // Validate file extension
             if !filename.ends_with(".png") && !filename.ends_with(".jpg") && !filename.ends_with(".jpeg") {
-                return Err(AppError::BadRequest("Only PNG and JPEG images are allowed".to_string()));
+                return Err(AppError::BadRequest("Invalid file type. Only images allowed.".to_string()));
             }
 
             // Generate unique filename

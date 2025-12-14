@@ -33,6 +33,12 @@ pub trait UserRepositoryTrait: Send + Sync {
     
     /// Deletes a user by their ID.
     async fn delete(&self, id: Uuid) -> Result<(), AppError>;
+
+    /// Finds a user by email, including soft-deleted ones.
+    async fn find_by_email_with_deleted(&self, email: &str) -> Result<Option<User>, AppError>;
+
+    /// Restores a soft-deleted user.
+    async fn restore(&self, id: Uuid, req: CreateUserRequest) -> Result<User, AppError>;
 }
 
 /// User repository implementation using SeaORM.
@@ -174,10 +180,55 @@ impl UserRepositoryTrait for UserRepository {
         let mut user: user::ActiveModel = existing.unwrap().into();
         user.deleted_at = Set(Some(chrono::Utc::now()));
 
-        user.update(&*self.db)
+        log::info!("Soft deleting user...");
+
+        let res = user.update(&*self.db)
             .await
             .map_err(|e| AppError::DatabaseError(e.to_string()))?;
 
+        log::info!("Soft delete successful. DeletedAt: {:?}", res.deleted_at);
+
         Ok(())
+    }
+
+    async fn find_by_email_with_deleted(&self, email: &str) -> Result<Option<User>, AppError> {
+        let user = UserEntity::find()
+            .filter(user::Column::Email.eq(email))
+            .one(&*self.db)
+            .await
+            .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+        
+        if user.is_some() {
+            log::info!("FOUND user by email (inc deleted): {} -> {:?}", email, user.as_ref().unwrap().id);
+        } else {
+            log::info!("NOT FOUND user by email (inc deleted): {}", email);
+        }
+        Ok(user)
+    }
+
+    async fn restore(&self, id: Uuid, req: CreateUserRequest) -> Result<User, AppError> {
+        let existing = UserEntity::find_by_id(id)
+            .one(&*self.db)
+            .await
+            .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+
+        if existing.is_none() {
+            return Err(AppError::NotFound(format!("User with id {} not found", id)));
+        }
+
+        let mut user: user::ActiveModel = existing.unwrap().into();
+        let password_hash = password::hash_password(&req.password)?;
+
+        user.username = Set(req.username);
+        user.email = Set(req.email);
+        user.password_hash = Set(password_hash);
+        user.deleted_at = Set(None);
+        user.updated_at = Set(chrono::Utc::now());
+
+        let result = user.update(&*self.db)
+            .await
+            .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+
+        Ok(result)
     }
 }

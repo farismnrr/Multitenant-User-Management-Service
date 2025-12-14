@@ -5,6 +5,7 @@ use crate::controllers::user_details_controller::{
     get_user_details, update_user_details, upload_profile_picture,
 };
 use crate::middlewares::auth_middleware;
+use crate::middlewares::api_key_middleware::ApiKeyMiddleware;
 use actix_web::web;
 use actix_web_httpauth::middleware::HttpAuthentication;
 
@@ -27,6 +28,7 @@ pub fn configure_user_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/users")
             .wrap(jwt_auth)  // Apply JWT auth to ALL routes
+            .wrap(ApiKeyMiddleware) // Apply ApiKey middleware to resolve Tenant ID
             .route("", web::get().to(get_user))           // GET /users (current user)
             .route("/all", web::get().to(get_all_users))  // GET /users/all
             .route("", web::put().to(update_user))        // PUT /users (current user)
