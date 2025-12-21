@@ -37,19 +37,25 @@ impl UserTenantRepositoryTrait for UserTenantRepository {
             ..Default::default()
         };
 
-        user_tenant::Entity::insert(user_tenant)
+        let result = user_tenant::Entity::insert(user_tenant)
             .exec(&*self.db)
-            .await
-            .map_err(|e| match e {
+            .await;
+
+        if let Err(e) = result {
+            match e {
                 DbErr::Query(RuntimeErr::SqlxError(sqlx::Error::Database(db_err))) => {
-                    if db_err.message().contains("duplicate") || db_err.message().contains("unique") {
-                        AppError::Conflict("User already assigned to this tenant".to_string())
-                    } else {
-                        AppError::DatabaseError(db_err.to_string())
+                    if db_err.message().contains("duplicate")
+                        || db_err.message().contains("unique")
+                    {
+                        return Err(AppError::Conflict(
+                            "User already assigned to this tenant".to_string(),
+                        ));
                     }
+                    return Err(AppError::DatabaseError(db_err.to_string()));
                 }
-                _ => AppError::DatabaseError(e.to_string()),
-            })?;
+                _ => return Err(AppError::DatabaseError(e.to_string())),
+            }
+        }
 
         Ok(())
     }

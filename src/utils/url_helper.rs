@@ -26,12 +26,12 @@
 pub fn to_full_url(path: Option<String>) -> Option<String> {
     path.map(|p| {
         if p.starts_with("http://") || p.starts_with("https://") {
-            p // Already a full URL
-        } else {
-            let base_url = std::env::var("BASE_URL")
-                .unwrap_or_else(|_| "http://localhost:5500".to_string());
-            format!("{}{}", base_url, p)
+            return p; // Already a full URL
         }
+
+        let base_url = std::env::var("BASE_URL")
+            .unwrap_or_else(|_| "http://localhost:5500".to_string());
+        format!("{}{}", base_url, p)
     })
 }
 

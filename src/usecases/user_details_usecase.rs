@@ -154,10 +154,9 @@ impl UserDetailsUseCase {
             let mut field = item.map_err(|e| {
                  let msg = e.to_string();
                  if msg.contains("incomplete") {
-                     AppError::BadRequest("Bad Request / Missing file".to_string())
-                 } else {
-                     AppError::BadRequest(format!("Failed to read multipart field: {}", e))
+                     return AppError::BadRequest("Bad Request / Missing file".to_string());
                  }
+                 AppError::BadRequest(format!("Failed to read multipart field: {}", e))
             })?;
 
             let content_disposition = field.content_disposition();
@@ -175,10 +174,11 @@ impl UserDetailsUseCase {
                 let malicious_exts = ["php", "exe", "sh", "js", "bat", "cmd", "pl", "py", "rb"];
                 
                 if malicious_exts.contains(&ext.as_str()) || filename.contains(".php") {
-                     return Err(AppError::BadRequest("Invalid file extension".to_string()));
-                } else {
-                     return Err(AppError::BadRequest("Invalid file type. Only images allowed.".to_string()));
+                    return Err(AppError::BadRequest("Invalid file extension".to_string()));
                 }
+                return Err(AppError::BadRequest(
+                    "Invalid file type. Only images allowed.".to_string(),
+                ));
             }
             
             // Validate double extension (Scenario 6)
@@ -251,16 +251,13 @@ impl UserDetailsUseCase {
     }
     
     fn split_full_name(full: Option<&str>) -> (Option<String>, Option<String>) {
-        match full {
-            Some(s) => {
-                if let Some((f, l)) = s.split_once(' ') {
-                    (Some(f.to_string()), Some(l.to_string()))
-                } else {
-                    (Some(s.to_string()), None)
-                }
-            },
-            None => (None, None)
+        if let Some(s) = full {
+            if let Some((f, l)) = s.split_once(' ') {
+                return (Some(f.to_string()), Some(l.to_string()));
+            }
+            return (Some(s.to_string()), None);
         }
+        (None, None)
     }
 
     /// Converts UserDetails entity to UserDetailsResponse DTO.

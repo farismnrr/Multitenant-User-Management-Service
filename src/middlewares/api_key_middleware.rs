@@ -98,26 +98,28 @@ where
         let service = self.service.clone();
 
         Box::pin(async move {
+            if db.is_none() {
+                error!("[Middleware | ApiKey] Database connection not found in app_data");
+            }
+
             if let Some(db) = db {
                 // Fetch the first tenant created (acting as default tenant for simple API Key auth)
                 match tenant::Entity::find()
                     .order_by_asc(tenant::Column::CreatedAt)
                     .one(db.as_ref())
-                    .await 
+                    .await
                 {
                     Ok(Some(tenant)) => {
                         debug!("[Middleware | ApiKey] Resolved Tenant ID: {}", tenant.id);
                         req.extensions_mut().insert(TenantId(tenant.id));
-                    },
+                    }
                     Ok(None) => {
                         debug!("[Middleware | ApiKey] No tenant found in database. Proceeding without Tenant ID.");
-                    },
+                    }
                     Err(e) => {
                         error!("[Middleware | ApiKey] Database error fetching tenant: {}", e);
                     }
                 }
-            } else {
-                 error!("[Middleware | ApiKey] Database connection not found in app_data");
             }
 
             debug!("[Middleware | ApiKey] Authorized request to '{}'", path);

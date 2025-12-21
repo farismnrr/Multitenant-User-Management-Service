@@ -45,11 +45,10 @@ pub async fn validator(
             }
         }
         Err(e) => {
-            let message = if e.to_string().contains("ExpiredSignature") {
-                "Token expired"
-            } else {
-                "Unauthorized"
-            };
+            let mut message = "Unauthorized";
+            if e.to_string().contains("ExpiredSignature") {
+                message = "Token expired";
+            }
 
             let err = actix_web::error::InternalError::from_response(
                 message, 

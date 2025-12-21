@@ -31,22 +31,22 @@ pub async fn create_tenant(
     let (tenant, created) = tenant_usecase.create_tenant(req.into_inner()).await?;
     
     if created {
-        Ok(HttpResponse::Created().json(SuccessResponseDTO::new(
+        return Ok(HttpResponse::Created().json(SuccessResponseDTO::new(
             "Tenant created successfully",
             json!({ 
                 "tenant_id": tenant.id,
                 "id": tenant.id 
             }),
-        )))
-    } else {
-        Ok(HttpResponse::Ok().json(SuccessResponseDTO::new(
-            "Tenant already exists",
-            json!({ 
-                "tenant_id": tenant.id,
-                "id": tenant.id 
-            }),
-        )))
+        )));
     }
+
+    Ok(HttpResponse::Ok().json(SuccessResponseDTO::new(
+        "Tenant already exists",
+        json!({ 
+            "tenant_id": tenant.id,
+            "id": tenant.id 
+        }),
+    )))
 }
 
 /// Gets a tenant by ID.
@@ -86,6 +86,11 @@ pub async fn get_all_tenants(
     let tenants = tenant_usecase.get_all_tenants().await?;
     let total = tenants.len();
     
+    let mut total_pages = 0;
+    if total > 0 {
+        total_pages = (total as f64 / 10.0).ceil() as u64;
+    }
+
     Ok(HttpResponse::Ok().json(SuccessResponseDTO::new(
         "Tenants retrieved successfully",
         json!({
@@ -94,7 +99,7 @@ pub async fn get_all_tenants(
                 "page": 1,
                 "limit": 10,
                 "total": total,
-                "total_pages": if total == 0 { 0 } else { (total as f64 / 10.0).ceil() as u64 }
+                "total_pages": total_pages
             }
         }),
     )))

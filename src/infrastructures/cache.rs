@@ -32,12 +32,12 @@ impl RocksDbCache {
                         let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
                         if item.expired_at > now {
                             // info!("CACHE HIT: {}", key);
-                            Some(item.data)
-                        } else {
-                            // info!("CACHE EXPIRED: {}", key);
-                            let _ = self.db.delete(key); // Lazy delete
-                            None
+                            return Some(item.data);
                         }
+
+                        // info!("CACHE EXPIRED: {}", key);
+                        let _ = self.db.delete(key); // Lazy delete
+                        None
                     }
                     Err(e) => {
                         error!("Failed to deserialize cache item for key {}: {}", key, e);
@@ -115,8 +115,8 @@ impl RocksDbCache {
         // Explicit flush or cancel compaction could go here if needed.
         if let Err(e) = self.db.flush() {
             log::error!("Error flushing RocksDB: {}", e);
-        } else {
-             log::info!("RocksDB flushed successfully.");
+            return;
         }
+        log::info!("RocksDB flushed successfully.");
     }
 }

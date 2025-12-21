@@ -70,20 +70,21 @@ impl TenantRepositoryTrait for TenantRepository {
             ..Default::default()
         };
 
-        TenantEntity::insert(tenant.clone())
-            .exec(&*self.db)
-            .await
-            .map_err(|e| match e {
-                DbErr::Exec(RuntimeErr::SqlxError(sqlx::Error::Database(db_err))) | DbErr::Query(RuntimeErr::SqlxError(sqlx::Error::Database(db_err))) => {
+        let result = TenantEntity::insert(tenant.clone()).exec(&*self.db).await;
+
+        if let Err(e) = result {
+            match e {
+                DbErr::Exec(RuntimeErr::SqlxError(sqlx::Error::Database(db_err)))
+                | DbErr::Query(RuntimeErr::SqlxError(sqlx::Error::Database(db_err))) => {
                     let msg = db_err.message().to_lowercase();
                     if msg.contains("duplicate") || msg.contains("unique") {
-                        AppError::Conflict("Tenant name already exists".to_string())
-                    } else {
-                        AppError::DatabaseError(db_err.to_string())
+                        return Err(AppError::Conflict("Tenant name already exists".to_string()));
                     }
+                    return Err(AppError::DatabaseError(db_err.to_string()));
                 }
-                _ => AppError::DatabaseError(e.to_string()),
-            })?;
+                _ => return Err(AppError::DatabaseError(e.to_string())),
+            }
+        }
 
         Ok(tenant.try_into_model().unwrap())
     }
@@ -173,20 +174,23 @@ impl TenantRepositoryTrait for TenantRepository {
 
         tenant.updated_at = Set(chrono::Utc::now());
 
-        let result = tenant
-            .update(&*self.db)
-            .await
-            .map_err(|e| match e {
-                DbErr::Exec(RuntimeErr::SqlxError(sqlx::Error::Database(db_err))) | DbErr::Query(RuntimeErr::SqlxError(sqlx::Error::Database(db_err))) => {
+        let result = tenant.update(&*self.db).await;
+
+        if let Err(e) = result {
+            match e {
+                DbErr::Exec(RuntimeErr::SqlxError(sqlx::Error::Database(db_err)))
+                | DbErr::Query(RuntimeErr::SqlxError(sqlx::Error::Database(db_err))) => {
                     let msg = db_err.message().to_lowercase();
                     if msg.contains("duplicate") || msg.contains("unique") {
-                        AppError::Conflict("Tenant name already exists".to_string())
-                    } else {
-                        AppError::DatabaseError(db_err.to_string())
+                        return Err(AppError::Conflict("Tenant name already exists".to_string()));
                     }
+                    return Err(AppError::DatabaseError(db_err.to_string()));
                 }
-                _ => AppError::DatabaseError(e.to_string()),
-            })?;
+                _ => return Err(AppError::DatabaseError(e.to_string())),
+            }
+        }
+
+        let result = result.unwrap();
 
         // Invalidate cache
         self.cache.del(&format!("tenant:{}", id));

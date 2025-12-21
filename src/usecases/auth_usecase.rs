@@ -113,22 +113,22 @@ impl AuthUseCase {
         let (user, is_restored) = match self.repository.find_by_email_with_deleted(&normalized_email).await? {
             Some(existing_user) => {
                 log::debug!("Register flow found user: {:?} (Active: {})", existing_user.id, existing_user.deleted_at.is_none());
-                if existing_user.deleted_at.is_some() {
-                    // Restore deleted user
-                    let create_req = CreateUserRequest {
-                        username: req.username.clone(),
-                        email: normalized_email.clone(),
-                        password: req.password.clone(),
-                    };
-                    let restored_user = self.repository.restore(existing_user.id, create_req).await?;
-                    (restored_user, true)
-                } else {
+                if existing_user.deleted_at.is_none() {
                     // User exists and is active - email already in use
                     let err = AppError::Conflict("Email already exists".to_string());
                     self.log_activity_failure(Some(existing_user.id), "register", &err, ip_address, user_agent)
                         .await;
                     return Err(err);
                 }
+
+                // Restore deleted user
+                let create_req = CreateUserRequest {
+                    username: req.username.clone(),
+                    email: normalized_email.clone(),
+                    password: req.password.clone(),
+                };
+                let restored_user = self.repository.restore(existing_user.id, create_req).await?;
+                (restored_user, true)
             }
             None => {
                 // Check if username exists globally
@@ -229,11 +229,10 @@ impl AuthUseCase {
         let (ip_address, user_agent) = request_helper::extract_client_info(http_req);
 
         // Helper to normalize input for email search
-        let login_identifier = if req.email_or_username.contains('@') {
-            req.email_or_username.to_lowercase()
-        } else {
-            req.email_or_username.clone()
-        };
+        let mut login_identifier = req.email_or_username.clone();
+        if req.email_or_username.contains('@') {
+            login_identifier = req.email_or_username.to_lowercase();
+        }
 
         // Hack for e2e test expecting banned user (since not seeded)
         if req.email_or_username == "banned_user" {
@@ -437,10 +436,9 @@ impl AuthUseCase {
             .validate_token(refresh_token)
             .map_err(|e| {
                 if e.to_string().contains("ExpiredSignature") {
-                    AppError::Unauthorized("Token expired".to_string())
-                } else {
-                    AppError::Unauthorized("Unauthorized".to_string())
+                    return AppError::Unauthorized("Token expired".to_string());
                 }
+                AppError::Unauthorized("Unauthorized".to_string())
             })?;
 
         // Verify it's a refresh token (not an access token)
@@ -791,11 +789,13 @@ impl AuthUseCase {
             details: user_details.map(|details| {
                 let (first, last) = match details.full_name {
                     Some(s) => {
-                        if let Some((f, l)) = s.split_once(' ') {
-                            (Some(f.to_string()), Some(l.to_string()))
-                        } else {
-                            (Some(s), None)
-                        }
+                let parse_name = |name: String| -> (Option<String>, Option<String>) {
+                    if let Some((f, l)) = name.split_once(' ') {
+                        return (Some(f.to_string()), Some(l.to_string()));
+                    }
+                    (Some(name), None)
+                };
+                parse_name(s)
                     },
                     None => (None, None)
                 };

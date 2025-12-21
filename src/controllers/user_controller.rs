@@ -43,6 +43,11 @@ pub async fn get_all_users(
     let users = usecase.get_all_users(tenant_id, &current_user.role).await?;
 
     let total = users.len();
+    let mut total_pages = 0;
+    if total > 0 {
+        total_pages = (total as f64 / 10.0).ceil() as u64;
+    }
+
     Ok(HttpResponse::Ok().json(SuccessResponseDTO::new(
         "Users retrieved successfully",
         json!({
@@ -51,9 +56,9 @@ pub async fn get_all_users(
                 "page": 1,
                 "limit": 10,
                 "total": total,
-                "total_pages": if total == 0 { 0 } else { (total as f64 / 10.0).ceil() as u64 }
+                "total_pages": total_pages
             }
-        })
+        }),
     )))
 }
 

@@ -165,13 +165,15 @@ impl UserUseCase {
             details: user_details.map(|details| {
                 let (first, last) = match details.full_name {
                     Some(s) => {
-                        if let Some((f, l)) = s.split_once(' ') {
-                            (Some(f.to_string()), Some(l.to_string()))
-                        } else {
-                            (Some(s), None)
-                        }
-                    },
-                    None => (None, None)
+                        let parse_name = |name: String| -> (Option<String>, Option<String>) {
+                            if let Some((f, l)) = name.split_once(' ') {
+                                return (Some(f.to_string()), Some(l.to_string()));
+                            }
+                            (Some(name), None)
+                        };
+                        parse_name(s)
+                    }
+                    None => (None, None),
                 };
 
                 UserDetailsResponse {

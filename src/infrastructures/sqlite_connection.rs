@@ -29,11 +29,11 @@ pub async fn initialize() -> anyhow::Result<Arc<DatabaseConnection>> {
         .unwrap_or_else(|| "user_auth_plugin.sqlite".to_string());
     
     // Ensure .db or .sqlite extension if not present
-    let db_filename = if name.ends_with(".db") || name.ends_with(".sqlite") {
-        name
-    } else {
-        format!("{}.sqlite", name)
-    };
+    // Ensure .db or .sqlite extension if not present
+    let mut db_filename = name;
+    if !db_filename.ends_with(".db") && !db_filename.ends_with(".sqlite") {
+        db_filename = format!("{}.sqlite", db_filename);
+    }
 
     let url = format!("sqlite://{}?mode=rwc", db_filename);
 

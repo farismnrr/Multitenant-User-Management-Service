@@ -73,20 +73,25 @@ impl UserDetailsRepositoryTrait for UserDetailsRepository {
             ..Default::default()
         };
 
-        UserDetailsEntity::insert(user_details.clone())
+        let result = UserDetailsEntity::insert(user_details.clone())
             .exec(&*self.db)
-            .await
-            .map_err(|e| match e {
-                DbErr::Exec(RuntimeErr::SqlxError(sqlx::Error::Database(db_err))) | DbErr::Query(RuntimeErr::SqlxError(sqlx::Error::Database(db_err))) => {
+            .await;
+
+        if let Err(e) = result {
+            match e {
+                DbErr::Exec(RuntimeErr::SqlxError(sqlx::Error::Database(db_err)))
+                | DbErr::Query(RuntimeErr::SqlxError(sqlx::Error::Database(db_err))) => {
                     let msg = db_err.message().to_lowercase();
                     if msg.contains("duplicate") || msg.contains("unique") {
-                        AppError::BadRequest("User details already exist for this user".to_string())
-                    } else {
-                        AppError::DatabaseError(db_err.to_string())
+                        return Err(AppError::BadRequest(
+                            "User details already exist for this user".to_string(),
+                        ));
                     }
+                    return Err(AppError::DatabaseError(db_err.to_string()));
                 }
-                _ => AppError::DatabaseError(e.to_string()),
-            })?;
+                _ => return Err(AppError::DatabaseError(e.to_string())),
+            }
+        }
 
         Ok(user_details.try_into_model().unwrap())
     }

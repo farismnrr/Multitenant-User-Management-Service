@@ -142,8 +142,10 @@ pub async fn run_server() -> std::io::Result<()> {
     // It selects between Postgres and SQLite based on DB_TYPE environment variable.
     // Default is SQLite if unspecified or empty.
 
-    let db_type = std::env::var("CORE_DB_TYPE").unwrap_or_else(|_| "sqlite".to_string());
-    let db_type = if db_type.trim().is_empty() { "sqlite".to_string() } else { db_type };
+    let mut db_type = std::env::var("CORE_DB_TYPE").unwrap_or_else(|_| "sqlite".to_string());
+    if db_type.trim().is_empty() {
+        db_type = "sqlite".to_string();
+    }
 
     info!("Database Type: {}", db_type);
 

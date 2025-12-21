@@ -78,20 +78,23 @@ impl UserRepositoryTrait for UserRepository {
             ..Default::default()
         };
 
-        UserEntity::insert(user.clone())
-            .exec(&*self.db)
-            .await
-            .map_err(|e| match e {
-                DbErr::Exec(RuntimeErr::SqlxError(sqlx::Error::Database(db_err))) | DbErr::Query(RuntimeErr::SqlxError(sqlx::Error::Database(db_err))) => {
+        let result = UserEntity::insert(user.clone()).exec(&*self.db).await;
+
+        if let Err(e) = result {
+            match e {
+                DbErr::Exec(RuntimeErr::SqlxError(sqlx::Error::Database(db_err)))
+                | DbErr::Query(RuntimeErr::SqlxError(sqlx::Error::Database(db_err))) => {
                     let msg = db_err.message().to_lowercase();
                     if msg.contains("duplicate") || msg.contains("unique") {
-                        AppError::Conflict("Username or email already exists".to_string())
-                    } else {
-                        AppError::DatabaseError(db_err.to_string())
+                        return Err(AppError::Conflict(
+                            "Username or email already exists".to_string(),
+                        ));
                     }
+                    return Err(AppError::DatabaseError(db_err.to_string()));
                 }
-                _ => AppError::DatabaseError(e.to_string()),
-            })?;
+                _ => return Err(AppError::DatabaseError(e.to_string())),
+            }
+        }
 
         Ok(user.try_into_model().unwrap())
     }
@@ -180,20 +183,25 @@ impl UserRepositoryTrait for UserRepository {
 
         user.updated_at = Set(chrono::Utc::now());
 
-        let result = user
-            .update(&*self.db)
-            .await
-            .map_err(|e| match e {
-                DbErr::Exec(RuntimeErr::SqlxError(sqlx::Error::Database(db_err))) | DbErr::Query(RuntimeErr::SqlxError(sqlx::Error::Database(db_err))) => {
+        let result = user.update(&*self.db).await;
+
+        if let Err(e) = result {
+             match e {
+                DbErr::Exec(RuntimeErr::SqlxError(sqlx::Error::Database(db_err)))
+                | DbErr::Query(RuntimeErr::SqlxError(sqlx::Error::Database(db_err))) => {
                     let msg = db_err.message().to_lowercase();
                     if msg.contains("duplicate") || msg.contains("unique") {
-                        AppError::Conflict("Username or email already exists".to_string())
-                    } else {
-                        AppError::DatabaseError(db_err.to_string())
+                        return Err(AppError::Conflict(
+                            "Username or email already exists".to_string(),
+                        ));
                     }
+                    return Err(AppError::DatabaseError(db_err.to_string()));
                 }
-                _ => AppError::DatabaseError(e.to_string()),
-            })?;
+                _ => return Err(AppError::DatabaseError(e.to_string())),
+            }
+        }
+
+        let result = result.unwrap();
 
         // Invalidate cache
         self.cache.del(&format!("user:{}", id));
@@ -246,11 +254,12 @@ impl UserRepositoryTrait for UserRepository {
             .await
             .map_err(|e| AppError::DatabaseError(e.to_string()))?;
         
-        if user.is_some() {
-            log::debug!("FOUND user by email (inc deleted) [REDACTED] -> {}", user.as_ref().unwrap().id);
-        } else {
-            log::debug!("NOT FOUND user by email (inc deleted) [REDACTED]");
+        if let Some(u) = &user {
+            log::debug!("FOUND user by email (inc deleted) [REDACTED] -> {}", u.id);
+            return Ok(user);
         }
+
+        log::debug!("NOT FOUND user by email (inc deleted) [REDACTED]");
         Ok(user)
     }
 
