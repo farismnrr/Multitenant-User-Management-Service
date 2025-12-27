@@ -5,4 +5,4 @@
 
 pub mod postgres_connection;
 pub mod sqlite_connection;
-pub mod cache;
+pub mod rocksdb_connection;

@@ -5,7 +5,7 @@ use chrono::NaiveDate;
 use sea_orm::*;
 use std::sync::Arc;
 use uuid::Uuid;
-use crate::infrastructures::cache::RocksDbCache;
+use crate::infrastructures::rocksdb_connection::RocksDbCache;
 use std::time::Duration;
 
 /// Trait defining user_details repository operations.

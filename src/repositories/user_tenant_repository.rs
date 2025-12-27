@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use sea_orm::*;
 use std::sync::Arc;
 use uuid::Uuid;
-use crate::infrastructures::cache::RocksDbCache;
+use crate::infrastructures::rocksdb_connection::RocksDbCache;
 use std::time::Duration;
 
 #[async_trait]

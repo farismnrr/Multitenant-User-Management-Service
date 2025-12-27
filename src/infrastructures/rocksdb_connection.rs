@@ -2,7 +2,7 @@ use rocksdb::{DB, Options};
 use serde::{de::DeserializeOwned, Serialize, Deserialize};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use log::error;
+use log::{error, warn, info};
 
 #[derive(Serialize, Deserialize, Debug)]
 struct CachedItem<T> {
@@ -22,6 +22,49 @@ impl RocksDbCache {
         Ok(Self {
             db: Arc::new(db),
         })
+    }
+
+    /// Creates a new RocksDbCache with automatic recovery from lock errors.
+    /// If the database fails to open (e.g., due to a stale lock file), 
+    /// it will delete the cache directory and recreate it from scratch.
+    pub fn new_with_recovery(path: &str) -> Result<Self, rocksdb::Error> {
+        match Self::new(path) {
+            Ok(cache) => Ok(cache),
+            Err(e) => {
+                let error_msg = e.to_string();
+                // Check if it's a lock file error
+                if error_msg.contains("lock file") || error_msg.contains("Resource temporarily unavailable") {
+                    warn!("⚠️ RocksDB lock error detected: {}", error_msg);
+                    info!("🔄 Attempting to recover by deleting and recreating cache directory...");
+                    
+                    // Delete the cache directory
+                    if let Err(delete_err) = std::fs::remove_dir_all(path) {
+                        // If path doesn't exist, that's fine
+                        if delete_err.kind() != std::io::ErrorKind::NotFound {
+                            error!("❌ Failed to delete cache directory: {}", delete_err);
+                            return Err(e);
+                        }
+                    }
+                    
+                    info!("🗑️ Cache directory deleted successfully");
+                    
+                    // Try to create the cache again
+                    match Self::new(path) {
+                        Ok(cache) => {
+                            info!("✅ RocksDB cache recreated successfully");
+                            Ok(cache)
+                        }
+                        Err(retry_err) => {
+                            error!("❌ Failed to recreate RocksDB cache after recovery: {}", retry_err);
+                            Err(retry_err)
+                        }
+                    }
+                } else {
+                    // Not a lock error, propagate the original error
+                    Err(e)
+                }
+            }
+        }
     }
 
     pub fn get<T: DeserializeOwned>(&self, key: &str) -> Option<T> {

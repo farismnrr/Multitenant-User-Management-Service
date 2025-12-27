@@ -6,8 +6,6 @@ logs/
 coverage/
 rocksdb_cache/
 
-Dockerfile
-entrypoint.sh
 user_auth_plugin.sqlite
 snapshot.json
 

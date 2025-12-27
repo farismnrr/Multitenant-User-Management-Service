@@ -166,8 +166,8 @@ pub async fn run_server() -> std::io::Result<()> {
     // They are wrapped in `Arc` (Atomic Reference Counting) to allow thread-safe sharing
     // across multiple potential threads in the server.
 
-    use crate::infrastructures::cache::RocksDbCache;
-    let cache = Arc::new(RocksDbCache::new("./rocksdb_cache")
+    use crate::infrastructures::rocksdb_connection::RocksDbCache;
+    let cache = Arc::new(RocksDbCache::new_with_recovery("./rocksdb_cache")
         .map_err(|e| std::io::Error::other(format!("Failed to initialize RocksDB cache: {}", e)))?);
 
     let user_repository = Arc::new(UserRepository::new(db.clone(), cache.clone()));
@@ -217,6 +217,18 @@ pub async fn run_server() -> std::io::Result<()> {
         String::new()
     }));
 
+    // Create assets directory if it doesn't exist
+    std::fs::create_dir_all("assets").ok();
+
+    // CORS Configuration
+    let allowed_origins_raw = std::env::var("ALLOWED_ORIGINS").unwrap_or_else(|_| "http://localhost:5173".to_string());
+    let allowed_origins: Arc<Vec<String>> = Arc::new(
+        allowed_origins_raw.split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect()
+    );
+
     info!("🚀 Actix server running on http://0.0.0.0:5500");
 
     let db_for_factory = db.clone();
@@ -226,8 +238,19 @@ pub async fn run_server() -> std::io::Result<()> {
     let auth_usecase_for_factory = auth_usecase.clone();
     let user_details_usecase_for_factory = user_details_usecase.clone();
     let tenant_usecase_for_factory = tenant_usecase.clone();
+    let allowed_origins_for_factory = allowed_origins.clone();
 
     let server = HttpServer::new(move || {
+        let mut cors = actix_cors::Cors::default()
+            .allow_any_method()
+            .allow_any_header()
+            .supports_credentials()
+            .max_age(3600);
+
+        for origin in allowed_origins_for_factory.iter() {
+            cors = cors.allowed_origin(origin);
+        }
+
         App::new()
             .app_data(web::Data::from(secret_for_factory.clone()))
             .app_data(web::Data::from(db_for_factory.clone()))
@@ -246,22 +269,9 @@ pub async fn run_server() -> std::io::Result<()> {
             .wrap(RequestLoggerMiddleware)
             .wrap(middleware::Compress::default())
 
-            .route("/", web::get().to(healthcheck))
-
-            .service(
-                actix_files::Files::new("/assets", "assets")
-                    .show_files_listing()
-                    .use_etag(true)
-                    .use_last_modified(true)
-            )
+            .route("/health", web::get().to(healthcheck))
             
-            .wrap(
-                actix_cors::Cors::default()
-                    .allow_any_origin()
-                    .allow_any_method()
-                    .allow_any_header()
-                    .max_age(3600)
-            )
+            .wrap(cors)
 
             .service(
                 web::scope("/api")
@@ -269,9 +279,15 @@ pub async fn run_server() -> std::io::Result<()> {
                     .configure(user_routes::configure_user_routes)
             )
             
-            // .configure(user_routes::configure_user_routes) // MOVED OUT
-            // .configure(auth_routes::configure_jwt_routes) // REPLACED
             .configure(auth_routes::configure_routes)
+
+            .service(
+                actix_files::Files::new("/", "./web/dist")
+                    .index_file("index.html")
+                    .default_handler(
+                        web::to(|| actix_files::NamedFile::open_async("./web/dist/index.html"))
+                    )
+            )
     })
     .bind(("0.0.0.0", 5500))?;
 
@@ -342,7 +358,7 @@ pub async fn run_server() -> std::io::Result<()> {
 
     let cache_tx = shutdown_tx.clone();
     let cache_for_health = cache.clone();
-    crate::infrastructures::cache::RocksDbCache::monitor_health(cache_for_health, cache_tx).await;
+    RocksDbCache::monitor_health(cache_for_health, cache_tx).await;
 
     let server_result = srv.await;
     let _ = shutdown_task.await;

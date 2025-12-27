@@ -40,10 +40,20 @@ dev:
 	@echo "💡 Tip: Install cargo-watch with 'make install-watch' if not installed"
 	@cargo watch -i "*.sqlite*" -i "*.db*" -i "rocksdb_cache" -x run || (echo "❌ cargo-watch not found. Installing..." && cargo install cargo-watch && cargo watch -i "*.sqlite*" -i "*.db*" -i "rocksdb_cache" -x run)
 
-# Run development server without hot reload
+# Run development server with hot reload
 start:
 	@echo "🚀 Starting development server (no hot reload)..."
 	cargo run
+
+# Run web frontend
+start-web:
+	@echo "🚀 Starting Web Frontend..."
+	@cd web && npm run dev
+
+# Run both backend and frontend concurrently
+dev-all:
+	@echo "🚀 Starting User Auth Plugin (Backend + Frontend)..."
+	@make -j 2 dev start-web
 
 # Install cargo-watch for hot reload
 install-watch:
@@ -71,15 +81,13 @@ start-docker:
 	@echo "🚀 Starting Docker container..."
 	docker run --rm -it --network="host" --env-file .env $(DOCKER_IMAGE_NAME)
 
-# Push to GHCR (reads env vars)
+# Push to GHCR (reads env vars) - Multi-arch build
 push:
-	@echo "🏷️  Tagging image..."
-	docker tag $(DOCKER_IMAGE_NAME) $(GHCR_REPO):$(DOCKER_TAG)
-	@echo "🚀 Pushing to GHCR..."
+	@echo "🚀 Pushing to GHCR with multi-arch build (amd64, arm64)..."
 	@echo "🔐 Logging in to GHCR..."
 	@export $$(grep -v '^#' .env | grep -v '^$$' | xargs) && \
 	(echo "$${CR_PAT:-$$GITHUB_TOKEN}" | docker login ghcr.io -u farismnrr --password-stdin)
-	docker push $(GHCR_REPO):$(DOCKER_TAG)
+	docker buildx build --platform linux/amd64,linux/arm64 -t $(GHCR_REPO):$(DOCKER_TAG) --push .
 	@echo "✅ Image pushed to $(GHCR_REPO):$(DOCKER_TAG)"
 
 # --- Docker Compose Configuration ---
@@ -202,15 +210,15 @@ db-reset: migrate-fresh
 # Clean build artifacts
 clean:
 	@echo "🧹 Cleaning build artifacts..."
-	cargo clean
-	@echo "✅ Clean completed"
+	cargo clean																																									
+	@echo "✅ Clean completed"																																		
 
-# Kill process running on port 5500 (server's default port)
+# Kill process running on port 5500 (backend) and 5173 (frontend)
 kill:
-	@echo "🔪 Killing processes on port 5500..."
+	@echo "🔪 Killing processes on port 5500 (Backend)..."
 	@lsof -ti:5500 | xargs -r kill -9 || echo "✅ No process running on port 5500"
-
-
+	@echo "🔪 Killing processes on port 5173 (Frontend)..."
+	@lsof -ti:5173 | xargs -r kill -9 || echo "✅ No process running on port 5173"
 
 # Generate a random SHA-512 hash
 key:
