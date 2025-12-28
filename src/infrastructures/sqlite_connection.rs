@@ -46,7 +46,7 @@ pub async fn initialize() -> anyhow::Result<Arc<DatabaseConnection>> {
         .acquire_timeout(Duration::from_secs(5))
         .idle_timeout(Duration::from_secs(8))
         .max_lifetime(Duration::from_secs(8))
-        .sqlx_logging_level(log::LevelFilter::Debug);
+        .sqlx_logging_level(log::LevelFilter::Off);
 
     let db = Database::connect(opt).await?;
     

@@ -189,4 +189,40 @@ describe('POST /auth/login - Login User', () => {
         expect(response.data.data).toHaveProperty("access_token");
     });
 
+    // 11. Validation: Invalid SSO State (Special Chars)
+    test('Scenario 11: Validation: Invalid SSO State (Special Chars)', async () => {
+        try {
+            await axios.post(`${BASE_URL}/auth/login`, {
+                email_or_username: validUser.email,
+                password: validUser.password,
+                state: "invalid-state!"
+            }, { headers: { 'X-API-Key': API_KEY } });
+            throw new Error('Should have failed');
+        } catch (error) {
+            expect(error.response.status).toBe(422);
+            expect(error.response.data).toEqual(expect.objectContaining({
+                status: false,
+                message: expect.stringMatching(/State parameter must be alphanumeric/i)
+            }));
+        }
+    });
+
+    // 12. Validation: SSO Nonce Too Long
+    test('Scenario 12: Validation: SSO Nonce Too Long', async () => {
+        try {
+            await axios.post(`${BASE_URL}/auth/login`, {
+                email_or_username: validUser.email,
+                password: validUser.password,
+                nonce: "a".repeat(129)
+            }, { headers: { 'X-API-Key': API_KEY } });
+            throw new Error('Should have failed');
+        } catch (error) {
+            expect(error.response.status).toBe(422);
+            expect(error.response.data).toEqual(expect.objectContaining({
+                status: false,
+                message: expect.stringMatching(/Nonce parameter too long/i)
+            }));
+        }
+    });
+
 });

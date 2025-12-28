@@ -1,20 +1,22 @@
 import api from './api'
 
 class AuthService {
-    async login(email_or_username, password) {
+    async login(email_or_username, password, ssoParams = {}) {
         const response = await api.post('/auth/login', {
             email_or_username,
-            password
+            password,
+            ...ssoParams
         })
         return response.data
     }
 
-    async register(username, email, password, role = 'user') {
+    async register(username, email, password, role = 'user', ssoParams = {}) {
         const response = await api.post('/auth/register', {
             username,
             email,
             password,
-            role
+            role,
+            ...ssoParams
         })
         return response.data
     }

@@ -285,3 +285,75 @@ Register a new user account.
   ```
   *(Status: 409)*
 - **Side Effects**: None.
+
+### 13. Validation: Invalid SSO State (Special Chars)
+- **URL**: `http://localhost:5500/auth/register`
+- **Method**: `POST`
+- **Pre-conditions**: None.
+- **Request Body**:
+  ```json
+  {
+    "username": "<unique_username>",
+    "email": "<unique_email>",
+    "password": "StrongPassword123!",
+    "role": "user",
+    "state": "invalid_state!"
+  }
+  ```
+- **Expected Response**:
+  ```json
+  {
+    "status": false,
+    "message": "Validation Error"
+  }
+  ```
+  *(Status: 422)*
+- **Side Effects**: None.
+
+### 14. Validation: SSO Nonce Too Long
+- **URL**: `http://localhost:5500/auth/register`
+- **Method**: `POST`
+- **Pre-conditions**: None.
+- **Request Body**:
+  ```json
+  {
+    "username": "<unique_username>",
+    "email": "<unique_email>",
+    "password": "StrongPassword123!",
+    "role": "user",
+    "nonce": "<129 chars>"
+  }
+  ```
+- **Expected Response**:
+  ```json
+  {
+    "status": false,
+    "message": "Validation Error"
+  }
+  ```
+  *(Status: 422)*
+- **Side Effects**: None.
+
+### 15. Validation: Invalid Redirect URI (Injection)
+- **URL**: `http://localhost:5500/auth/register`
+- **Method**: `POST`
+- **Pre-conditions**: None.
+- **Request Body**:
+  ```json
+  {
+    "username": "<unique_username>",
+    "email": "<unique_email>",
+    "password": "StrongPassword123!",
+    "role": "user",
+    "redirect_uri": "https://example.com/<script>"
+  }
+  ```
+- **Expected Response**:
+  ```json
+  {
+    "status": false,
+    "message": "Validation Error"
+  }
+  ```
+  *(Status: 422)*
+- **Side Effects**: None.

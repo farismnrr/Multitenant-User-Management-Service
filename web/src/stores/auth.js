@@ -23,7 +23,17 @@ export const useAuthStore = defineStore('auth', () => {
         loading.value = true
         error.value = null
         try {
-            const response = await AuthService.login(emailOrUsername, password)
+            // Prepare SSO params
+            const urlParams = new URLSearchParams(window.location.search)
+            const redirectUri = urlParams.get('redirect_uri') || sessionStorage.getItem('sso_redirect_uri')
+
+            const ssoParams = {
+                state: ssoState.value,
+                nonce: ssoNonce.value,
+                redirect_uri: redirectUri
+            }
+
+            const response = await AuthService.login(emailOrUsername, password, ssoParams)
 
             // Response structure: { status, message, data: { access_token } }
             if (response?.data?.access_token) {
@@ -78,7 +88,14 @@ export const useAuthStore = defineStore('auth', () => {
         loading.value = true
         error.value = null
         try {
-            await AuthService.register(username, email, password, role)
+            // Prepare SSO params
+            const ssoParams = {
+                state: ssoState.value,
+                nonce: ssoNonce.value,
+                redirect_uri: sessionStorage.getItem('sso_redirect_uri')
+            }
+
+            await AuthService.register(username, email, password, role, ssoParams)
             alert("Registration successful. Please login.")
 
             // SSO: Preserve redirect params when going to login

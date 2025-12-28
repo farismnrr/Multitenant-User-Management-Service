@@ -238,4 +238,64 @@ describe('POST /auth/register - Register User', () => {
         }
     });
 
+    // 13. Validation: Invalid SSO State (Special Chars)
+    test('Scenario 13: Validation: Invalid SSO State (Special Chars)', async () => {
+        try {
+            await axios.post(`${BASE_URL}/auth/register`, {
+                username: `val_state_${Date.now()}`,
+                email: `val_state_${Date.now()}@test.com`,
+                password: "StrongPassword123!",
+                role: "user",
+                state: "invalid_state!"
+            }, { headers: { 'X-API-Key': API_KEY } });
+            throw new Error('Should have failed');
+        } catch (error) {
+            expect(error.response.status).toBe(422);
+            expect(error.response.data).toEqual(expect.objectContaining({
+                status: false,
+                message: expect.stringMatching(/State parameter must be alphanumeric/i)
+            }));
+        }
+    });
+
+    // 14. Validation: SSO Nonce Too Long
+    test('Scenario 14: Validation: SSO Nonce Too Long', async () => {
+        try {
+            await axios.post(`${BASE_URL}/auth/register`, {
+                username: `val_nonce_${Date.now()}`,
+                email: `val_nonce_${Date.now()}@test.com`,
+                password: "StrongPassword123!",
+                role: "user",
+                nonce: "a".repeat(129)
+            }, { headers: { 'X-API-Key': API_KEY } });
+            throw new Error('Should have failed');
+        } catch (error) {
+            expect(error.response.status).toBe(422);
+            expect(error.response.data).toEqual(expect.objectContaining({
+                status: false,
+                message: expect.stringMatching(/Nonce parameter too long/i)
+            }));
+        }
+    });
+
+    // 15. Validation: Invalid Redirect URI (Injection)
+    test('Scenario 15: Validation: Invalid Redirect URI (Injection)', async () => {
+        try {
+            await axios.post(`${BASE_URL}/auth/register`, {
+                username: `val_ure_${Date.now()}`,
+                email: `val_ure_${Date.now()}@test.com`,
+                password: "StrongPassword123!",
+                role: "user",
+                redirect_uri: "https://example.com/<script>"
+            }, { headers: { 'X-API-Key': API_KEY } });
+            throw new Error('Should have failed');
+        } catch (error) {
+            expect(error.response.status).toBe(422);
+            expect(error.response.data).toEqual(expect.objectContaining({
+                status: false,
+                message: expect.stringMatching(/Redirect URI contains invalid characters/i)
+            }));
+        }
+    });
+
 });

@@ -3,6 +3,7 @@ use crate::dtos::change_password_dto::ChangePasswordRequest;
 use crate::dtos::response_dto::SuccessResponseDTO;
 use crate::errors::AppError;
 use crate::usecases::auth_usecase::AuthUseCase;
+use crate::validators::sso_validator::validate_sso_params;
 use actix_web::{
     cookie::{Cookie, SameSite},
     web, HttpMessage, HttpResponse, Responder,
@@ -25,12 +26,18 @@ pub async fn register(
         .map(|id| id.0)
         .ok_or_else(|| AppError::Unauthorized("Tenant ID not found in request context".to_string()))?;
 
+    // Validate SSO params if present
+    validate_sso_params(&body.state, &body.nonce, &body.redirect_uri)?;
+
     let register_req = RegisterRequest {
         username: body.username.clone(),
         email: body.email.clone(),
         password: body.password.clone(),
         role: body.role.clone(),
         tenant_id,
+        state: body.state.clone(),
+        nonce: body.nonce.clone(),
+        redirect_uri: body.redirect_uri.clone(),
     };
 
     let auth_response = usecase.register(register_req, &req).await?;
@@ -59,10 +66,16 @@ pub async fn login(
         .map(|id| id.0)
         .ok_or_else(|| AppError::Unauthorized("Tenant ID not found in request context".to_string()))?;
 
+    // Validate SSO params if present
+    validate_sso_params(&body.state, &body.nonce, &body.redirect_uri)?;
+
     let login_req = LoginRequest {
         email_or_username: body.email_or_username.to_string(),
         password: body.password.clone(),
         tenant_id,
+        state: body.state.clone(),
+        nonce: body.nonce.clone(),
+        redirect_uri: body.redirect_uri.clone(),
     };
 
     let (auth_response, refresh_token) = usecase.login(login_req, &req).await?;

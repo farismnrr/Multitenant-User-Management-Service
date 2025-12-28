@@ -7,6 +7,9 @@ use serde::{Deserialize, Serialize};
 pub struct LoginRequestJson {
     pub email_or_username: String,
     pub password: String,
+    pub state: Option<String>,
+    pub nonce: Option<String>,
+    pub redirect_uri: Option<String>,
 }
 
 /// Request DTO for user login (Internal).
@@ -18,6 +21,9 @@ pub struct LoginRequest {
     pub email_or_username: String,
     pub password: String,
     pub tenant_id: uuid::Uuid,
+    pub state: Option<String>,
+    pub nonce: Option<String>,
+    pub redirect_uri: Option<String>,
 }
 
 /// Request DTO for user registration (JSON Body).
@@ -29,6 +35,9 @@ pub struct RegisterRequestJson {
     pub email: String,
     pub password: String,
     pub role: String,
+    pub state: Option<String>,
+    pub nonce: Option<String>,
+    pub redirect_uri: Option<String>,
 }
 
 /// Request DTO for user registration (Internal).
@@ -42,6 +51,9 @@ pub struct RegisterRequest {
     pub password: String,
     pub tenant_id: uuid::Uuid,
     pub role: String,
+    pub state: Option<String>,
+    pub nonce: Option<String>,
+    pub redirect_uri: Option<String>,
 }
 
 /// Authentication response containing only access token.

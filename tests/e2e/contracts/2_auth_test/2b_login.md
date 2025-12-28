@@ -199,6 +199,50 @@ Authenticate user and receive access token.
   - Refresh token cookie set.
   - Session created.
 
+### 11. Validation: Invalid SSO State (Special Chars)
+- **URL**: `http://localhost:5500/auth/login`
+- **Method**: `POST`
+- **Pre-conditions**: None.
+- **Request Body**:
+  ```json
+  {
+    "email_or_username": "user",
+    "password": "password",
+    "state": "invalid-state!"
+  }
+  ```
+- **Expected Response**:
+  ```json
+  {
+    "status": false,
+    "message": "Validation Error"
+  }
+  ```
+  *(Status: 422)*
+- **Side Effects**: None.
+
+### 12. Validation: SSO Nonce Too Long
+- **URL**: `http://localhost:5500/auth/login`
+- **Method**: `POST`
+- **Pre-conditions**: None.
+- **Request Body**:
+  ```json
+  {
+    "email_or_username": "user",
+    "password": "password",
+    "nonce": "<129 chars>"
+  }
+  ```
+- **Expected Response**:
+  ```json
+  {
+    "status": false,
+    "message": "Validation Error"
+  }
+  ```
+  *(Status: 422)*
+- **Side Effects**: None.
+
 ### 10. Successful login with username
 - **URL**: `http://localhost:5500/auth/login`
 - **Method**: `POST`
