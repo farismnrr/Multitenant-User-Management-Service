@@ -34,17 +34,15 @@ pub async fn create_tenant(
         return Ok(HttpResponse::Created().json(SuccessResponseDTO::new(
             "Tenant created successfully",
             json!({ 
-                "tenant_id": tenant.id,
-                "id": tenant.id 
-            }),
+                "tenant_id": tenant.id
+        }),
         )));
     }
 
     Ok(HttpResponse::Ok().json(SuccessResponseDTO::new(
         "Tenant already exists",
         json!({ 
-            "tenant_id": tenant.id,
-            "id": tenant.id 
+            "tenant_id": tenant.id
         }),
     )))
 }
@@ -121,11 +119,10 @@ pub async fn update_tenant(
     id: web::Path<Uuid>,
     req: web::Json<UpdateTenantRequest>,
 ) -> Result<impl Responder, AppError> {
-    let tenant = tenant_usecase.update_tenant(id.into_inner(), req.into_inner()).await?;
+    let _tenant = tenant_usecase.update_tenant(id.into_inner(), req.into_inner()).await?;
     
-    Ok(HttpResponse::Ok().json(SuccessResponseDTO::new(
+    Ok(HttpResponse::Ok().json(SuccessResponseDTO::<()>::no_data(
         "Tenant updated successfully",
-        tenant,
     )))
 }
 
@@ -146,5 +143,7 @@ pub async fn delete_tenant(
     log::info!("Attempting to delete tenant with ID: {}", id);
     tenant_usecase.delete_tenant(id.into_inner()).await?;
     
-    Ok(HttpResponse::NoContent().finish())
+    Ok(HttpResponse::Ok().json(SuccessResponseDTO::<()>::no_data(
+        "Tenant deleted successfully",
+    )))
 }

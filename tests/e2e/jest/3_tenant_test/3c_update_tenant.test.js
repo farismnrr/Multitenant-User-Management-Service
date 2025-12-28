@@ -20,7 +20,7 @@ describe('PUT /api/tenants/:id - Update Tenant', () => {
                 name: "Tenant_Update_Target_" + Date.now(),
                 description: "Target for Update"
             }, { headers: { 'X-Tenant-Secret-Key': TENANT_SECRET_KEY } });
-            tenantId = tRes.data.data?.id || tRes.data.result?.id;
+            tenantId = tRes.data.data?.tenant_id || tRes.data.result?.tenant_id;
 
             // 2. Create Conflicting Tenant
             await axios.post(`${BASE_URL}/api/tenants`, {

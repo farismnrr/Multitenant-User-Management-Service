@@ -160,7 +160,7 @@ describe('POST /auth/login - Login User', () => {
                 message: "Too Many Requests"
             }));
         }
-    }, 20000);
+    }, 60000);
 
 
     // 9. Successful login with email

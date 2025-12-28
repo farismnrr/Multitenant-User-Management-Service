@@ -66,3 +66,9 @@ pub struct AuthResponse {
     pub user_id: uuid::Uuid,
     pub access_token: String,
 }
+
+/// Query parameters for SSO logout endpoint.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct SsoLogoutQuery {
+    pub redirect_uri: Option<String>,
+}

@@ -379,6 +379,56 @@ impl AuthUseCase {
         Ok(())
     }
 
+    /// Logs out a user using cookie-based session identification (SSO Logout).
+    ///
+    /// This method is intended for redirect-based logout flows where the client
+    /// may not send an Authorization header but sends the HTTP-Only cookie.
+    ///
+    /// # Arguments
+    ///
+    /// * `http_req` - HTTP request containing refresh token cookie
+    ///
+    /// # Errors
+    ///
+    /// Returns `AppError::Unauthorized` if refresh token is missing or invalid.
+    pub async fn sso_logout(
+        &self,
+        http_req: &actix_web::HttpRequest,
+    ) -> Result<(), AppError> {
+        let (ip_address, user_agent) = request_helper::extract_client_info(http_req);
+
+        // Extract refresh token from cookie
+        let refresh_token = http_req
+            .cookie("refresh_token")
+            .ok_or_else(|| AppError::Unauthorized("Refresh token not found".to_string()))?
+            .value()
+            .to_string();
+
+        // Hash the refresh token to find the session
+        let refresh_token_hash = request_helper::hash_token(&refresh_token);
+
+        // Find match session
+        if let Some(session) = self
+            .session_repository
+            .find_by_refresh_token_hash(&refresh_token_hash)
+            .await?
+        {
+            // Delete the session
+            self.session_repository.delete_session(session.id).await?;
+            
+            // Log successful logout using user_id from session
+            self.log_activity_success(Some(session.user_id), "sso_logout", ip_address, user_agent)
+                .await;
+        } else {
+             // Session not found (already logged out or invalid)
+             // We still consider this specific operation a "success" (idempotent) 
+             // but maybe log a warning or just return Ok.
+             // For strictness, if cookie exists but session doesn't, it's stale.
+        }
+
+        Ok(())
+    }
+
     /// Gets the refresh token expiry duration in seconds.
     ///
     /// This value is used for setting the max-age of the refresh token cookie.

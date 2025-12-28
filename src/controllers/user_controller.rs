@@ -1,5 +1,5 @@
 use crate::dtos::user_dto::UpdateUserRequest;
-use crate::dtos::response_dto::{SuccessResponseDTO, IdResponse};
+use crate::dtos::response_dto::SuccessResponseDTO;
 use serde_json::json;
 use crate::errors::AppError;
 use crate::usecases::user_usecase::UserUseCase;
@@ -74,11 +74,10 @@ pub async fn update_user(
         .map(|id| id.0)
          .ok_or_else(|| AppError::Unauthorized("Tenant ID not found in request context".to_string()))?;
 
-    let updated_user = usecase.update_user(user_id, body.into_inner(), tenant_id).await?;
+    let _ = usecase.update_user(user_id, body.into_inner(), tenant_id).await?;
 
-    Ok(HttpResponse::Ok().json(SuccessResponseDTO::new(
+    Ok(HttpResponse::Ok().json(SuccessResponseDTO::<()>::no_data(
         "User updated successfully",
-        IdResponse { id: updated_user.id },
     )))
 }
 
@@ -90,8 +89,7 @@ pub async fn delete_user(
     let user_id = AuthUseCase::extract_user_id_from_request(&req)?;
     usecase.delete_user(user_id).await?;
 
-    Ok(HttpResponse::Ok().json(SuccessResponseDTO::new(
+    Ok(HttpResponse::Ok().json(SuccessResponseDTO::<()>::no_data(
         "User deleted successfully",
-        IdResponse { id: user_id },
     )))
 }

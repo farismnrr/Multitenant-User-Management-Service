@@ -45,8 +45,7 @@ pub async fn register(
     Ok(HttpResponse::Created().json(SuccessResponseDTO::new(
         "User registered successfully",
         serde_json::json!({
-            "user_id": auth_response.user_id,
-            "access_token": auth_response.access_token
+            "user_id": auth_response.user_id
         }),
     )))
 }
@@ -131,6 +130,37 @@ pub async fn logout(
         )))
 }
 
+/// Logs out a user via redirect (SSO Logout).
+///
+/// This endpoint clears the refresh token cookie and redirects the user
+/// to the specified `redirect_uri` (or defaults to home).
+/// It is designed for browser-based flows where the `Authorization` header
+/// might not be available, relying solely on the HTTP-Only cookie.
+pub async fn sso_logout(
+    usecase: web::Data<Arc<AuthUseCase>>,
+    query: web::Query<crate::dtos::auth_dto::SsoLogoutQuery>,
+    req: actix_web::HttpRequest,
+) -> Result<impl Responder, AppError> {
+    // Attempt logout logic (delete session) - ignore errors (e.g. if already logged out)
+    let _ = usecase.sso_logout(&req).await;
+
+    // Clear refresh token cookie
+    let cookie = Cookie::build("refresh_token", "")
+        .path("/")
+        .http_only(true)
+        .secure(false)
+        .same_site(SameSite::Strict)
+        .max_age(actix_web::cookie::time::Duration::seconds(0))
+        .finish();
+
+    let redirect_url = query.redirect_uri.clone().unwrap_or_else(|| "/".to_string());
+
+    Ok(HttpResponse::Found()
+        .append_header(("Location", redirect_url))
+        .cookie(cookie)
+        .finish())
+}
+
 /// Refreshes access token using refresh token from cookie.
 ///
 /// Delegates to use case for cookie extraction and token refresh logic.
@@ -170,12 +200,13 @@ pub async fn verify(
     req: actix_web::HttpRequest,
 ) -> Result<impl Responder, AppError> {
     let user_id = AuthUseCase::extract_user_id_from_request(&req)?;
-    let user = usecase.verify_user_exists(user_id).await?;
+    // Verify user exists but don't return the user data to match contract
+    let _ = usecase.verify_user_exists(user_id).await?;
 
-    Ok(HttpResponse::Ok().json(SuccessResponseDTO::new(
-        "Token is valid",
-        serde_json::json!({ "user": user }),
-    )))
+    Ok(HttpResponse::Ok().json(serde_json::json!({
+        "status": true,
+        "message": "Token is valid"
+    })))
 }
 
 /// Changes the authenticated user's password.

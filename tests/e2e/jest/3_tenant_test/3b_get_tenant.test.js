@@ -19,7 +19,7 @@ describe('GET /api/tenants/:id - Get Tenant by ID', () => {
                 name: "Tenant_Get_" + Date.now(),
                 description: "Test Tenant for Get"
             }, { headers: { 'X-Tenant-Secret-Key': TENANT_SECRET_KEY } });
-            validTenantId = tRes.data.data?.id || tRes.data.result?.id;
+            validTenantId = tRes.data.data?.tenant_id || tRes.data.result?.tenant_id;
 
             // 2. Setup user for JWT
             await axios.post(`${BASE_URL}/auth/register`, testUser, { headers: { 'X-API-Key': API_KEY } });

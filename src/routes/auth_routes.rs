@@ -22,6 +22,11 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
     
     cfg.service(
         web::scope("/auth")
+            // SSO Logout (Cookie based, no Bearer auth required)
+            // Accessed via browser redirect
+            // Moved to top to avoid middleware wrapping issues
+            .route("/sso/logout", web::get().to(crate::controllers::auth_controller::sso_logout))
+
             // ApiKey protected routes
             .service(
                 web::resource("/register")
