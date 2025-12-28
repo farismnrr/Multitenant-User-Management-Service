@@ -1,10 +1,5 @@
 <script setup>
-import { RouterView, useRoute } from 'vue-router'
-import { computed } from 'vue'
-
-const route = useRoute()
-// Keep Login and Register pages alive to preserve animation state
-const isAuthPage = computed(() => route.meta.guestOnly === true)
+import { RouterView } from 'vue-router'
 </script>
 
 <template>

@@ -15,7 +15,6 @@ onMounted(() => {
   // --- Professional/Enterprise Configuration ---
   const nodeColor = 'rgba(99, 102, 241, 0.25)' // Subtle Indigo
   const lineColor = 'rgba(99, 102, 241, 0.08)' // Very faint Indigo
-  const pulseColor = 'rgba(129, 140, 248, 0.6)' // Muted Indigo (less saturated)
   const nodeRadius = 2
   const gridSpacing = 80 // Sparser grid
 
@@ -138,7 +137,10 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <canvas ref="canvasRef" class="circuit-canvas"></canvas>
+  <canvas
+    ref="canvasRef"
+    class="circuit-canvas"
+  />
 </template>
 
 <style scoped>

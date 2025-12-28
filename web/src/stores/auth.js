@@ -11,6 +11,10 @@ export const useAuthStore = defineStore('auth', () => {
     const error = ref(null)
     const isInitialized = ref(false)
 
+    // SSO state (in memory, not persisted)
+    const ssoState = ref(null)
+    const ssoNonce = ref(null)
+
     // Getters
     const isAuthenticated = computed(() => !!accessToken.value)
 
@@ -19,16 +23,53 @@ export const useAuthStore = defineStore('auth', () => {
         loading.value = true
         error.value = null
         try {
-            const data = await AuthService.login(emailOrUsername, password)
-            if (data?.access_token) {
-                accessToken.value = data.access_token
-                user.value = data.user
-                router.push('/')
+            const response = await AuthService.login(emailOrUsername, password)
+
+            // Response structure: { status, message, data: { access_token } }
+            if (response?.data?.access_token) {
+                const { access_token } = response.data
+                accessToken.value = access_token
+
+                // Fetch user details immediately using the new token
+                try {
+                    const verifyResponse = await AuthService.verify(access_token)
+                    if (verifyResponse?.data?.user) {
+                        user.value = verifyResponse.data.user
+                    }
+                } catch (e) {
+                    console.error("Failed to fetch user details:", e)
+                    // Optional: handle error, maybe logout if verify fails?
+                }
+
+                // SSO: Check for redirect params from URL query first
+                const urlParams = new URLSearchParams(window.location.search)
+                const redirectUri = urlParams.get('redirect_uri') || sessionStorage.getItem('sso_redirect_uri')
+                const state = ssoState.value || ''
+
+                if (redirectUri) {
+                    // Clear SSO data
+                    sessionStorage.removeItem('sso_redirect_uri')
+                    sessionStorage.removeItem('sso_tenant_id')
+                    ssoState.value = null
+                    ssoNonce.value = null
+
+                    // Redirect back to calling app with access_token in hash fragment
+                    const finalUrl = `${redirectUri}#access_token=${access_token}&state=${state}`
+
+                    // Don't set loading=false, just redirect immediately
+                    window.location.href = finalUrl
+                    // Exit early - don't run finally block
+                    return
+                }
+
+                // No SSO redirect - show success message
+                alert('Login successful! You can close this window.')
             }
         } catch (err) {
             console.error(err)
             error.value = err.response?.data?.message || err.message || 'Login failed'
         } finally {
+            // Only set loading=false if we didn't redirect
             loading.value = false
         }
     }
@@ -39,7 +80,19 @@ export const useAuthStore = defineStore('auth', () => {
         try {
             await AuthService.register(username, email, password, role)
             alert("Registration successful. Please login.")
-            router.push('/login')
+
+            // SSO: Preserve redirect params when going to login
+            // Note: state/nonce will be regenerated fresh on login page
+            const redirectUri = sessionStorage.getItem('sso_redirect_uri')
+            if (redirectUri) {
+                const tenantId = sessionStorage.getItem('sso_tenant_id') || ''
+                router.push({
+                    name: 'login',
+                    query: { redirect_uri: redirectUri, tenant_id: tenantId }
+                })
+            } else {
+                router.push('/login')
+            }
         } catch (err) {
             console.error(err)
             error.value = err.response?.data?.message || err.message || 'Registration failed'
@@ -72,7 +125,7 @@ export const useAuthStore = defineStore('auth', () => {
                 accessToken.value = data.access_token
                 // Note: user info might need to be fetched if not in refresh response
             }
-        } catch (err) {
+        } catch {
             console.log("No valid session found or refresh failed.")
         } finally {
             loading.value = false
@@ -87,6 +140,8 @@ export const useAuthStore = defineStore('auth', () => {
         loading,
         error,
         isInitialized,
+        ssoState,
+        ssoNonce,
         // Getters
         isAuthenticated,
         // Actions

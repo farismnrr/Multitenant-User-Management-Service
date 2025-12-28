@@ -31,6 +31,15 @@ class AuthService {
         const response = await api.get('/auth/refresh')
         return response.data
     }
+
+    async verify(token) {
+        const response = await api.get('/auth/verify', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        })
+        return response.data
+    }
 }
 
 export default new AuthService()

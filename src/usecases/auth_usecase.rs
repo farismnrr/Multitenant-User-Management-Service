@@ -200,7 +200,7 @@ impl AuthUseCase {
             .await;
 
         Ok(AuthResponse {
-            user: Self::user_to_response(user),
+            user_id: user.id,
             access_token,
         })
     }
@@ -321,16 +321,13 @@ impl AuthUseCase {
             )
             .await?;
 
-        // Fetch user_details
-        let user_details = self.user_details_repository.find_by_user_id(user.id).await?;
-
         // Log successful login
         self.log_activity_success(Some(user.id), "login", ip_address, user_agent)
             .await;
 
         Ok((
             AuthResponse {
-                user: Self::user_to_response_with_details(user, user_details),
+                user_id: user.id,
                 access_token,
             },
             refresh_token,
@@ -761,18 +758,7 @@ impl AuthUseCase {
             .await;
     }
 
-    /// Converts a User entity to UserResponse DTO.
-    fn user_to_response(user: User) -> UserResponse {
-        UserResponse {
-            id: user.id,
-            username: user.username,
-            email: user.email,
-            created_at: user.created_at,
-            updated_at: user.updated_at,
-            role: "user".to_string(),
-            details: None, // Will be populated when fetching with user_details
-        }
-    }
+
 
     /// Converts a User entity and UserDetails to UserResponse DTO with details.
     fn user_to_response_with_details(

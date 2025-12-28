@@ -61,7 +61,66 @@ RUN npm ci
 COPY web/ ./
 
 # Build frontend for production
+# Run lint before build - fail if lint error
+RUN npm run lint
+
 RUN npm run build
+
+# ============================================================================
+# Stage 2.5: E2E Testing (Quality Gate)
+# Dies if tests fail
+# ============================================================================
+FROM node:22-bookworm-slim AS e2e-tester
+
+# Install runtime deps for backend (backend compiled in debian-slim-bookworm context)
+RUN apt-get update && apt-get install -y \
+    libssl3 \
+    ca-certificates \
+    curl \
+    procps \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy backend binary from builder
+COPY --from=rust-builder /app/target/release/user-auth-plugin ./
+COPY --from=rust-builder /app/target/release/migration ./
+
+# Copy test files
+COPY tests/e2e ./tests/e2e
+
+# Install test dependencies
+WORKDIR /app/tests/e2e/jest
+RUN npm ci
+
+# Setup Test Environment
+ENV PORT=5500
+ENV HOST=0.0.0.0
+ENV CORE_DB_TYPE=sqlite
+ENV CORE_DB_NAME=e2e_test.sqlite
+ENV JWT_SECRET=test_secret_key_very_long_and_secure_enough_for_testing
+ENV JWT_ACCESS_EXPIRY=3600
+ENV JWT_REFRESH_EXPIRY=86400
+ENV RUST_LOG=info
+
+WORKDIR /app
+
+# Run E2E Tests
+# 1. Run migrations
+# 2. Start Server (background)
+# 3. Wait for Healthcheck
+# 4. Run Tests
+# 5. Fail build if any step fails
+RUN ./migration fresh && \
+    (./user-auth-plugin & echo $! > server_pid) && \
+    echo "Waiting for server to start..." && \
+    sleep 2 && \
+    (curl --retry 10 --retry-delay 2 --retry-connrefused http://localhost:5500/health || (cat logs/* && exit 1)) && \
+    echo "Server is up, running tests..." && \
+    cd tests/e2e/jest && \
+    npm test && \
+    echo "Tests Passed!" && \
+    kill $(cat /app/server_pid)
 
 # ============================================================================
 # Stage 3: Runtime Image

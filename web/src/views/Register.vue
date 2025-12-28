@@ -1,12 +1,13 @@
 <script setup>
-import { ref, computed } from 'vue'
-import { RouterLink } from 'vue-router'
+import { ref, onMounted, watch } from 'vue'
+import { RouterLink, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useQuotes } from '../composables/useQuotes'
 import { usePasswordToggle } from '../composables/usePasswordToggle'
 import NetworkBackground from '../components/NetworkBackground.vue'
 
 const authStore = useAuthStore()
+const route = useRoute()
 const username = ref('')
 const email = ref('')
 const password = ref('')
@@ -17,6 +18,35 @@ const passwordMismatch = ref(false)
 
 // Use shared quotes composable
 const { currentQuote } = useQuotes()
+
+// Generate fresh state and nonce on page load and route change
+const generateSSOParams = () => {
+    const redirectUri = sessionStorage.getItem('sso_redirect_uri')
+    const tenantId = sessionStorage.getItem('sso_tenant_id')
+    
+    if (redirectUri && tenantId) {
+        // Generate fresh state and nonce
+        const state = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
+        const nonce = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
+        
+        // Store in Pinia (memory, not localStorage)
+        authStore.ssoState = state
+        authStore.ssoNonce = nonce
+        
+        // Update URL with full params without redirecting
+        const newUrl = `${window.location.pathname}?tenant_id=${tenantId}&redirect_uri=${redirectUri}&response_type=code&scope=openid&state=${state}&nonce=${nonce}`
+        window.history.replaceState({}, '', newUrl)
+    }
+}
+
+onMounted(() => {
+    generateSSOParams()
+})
+
+// Watch route changes to regenerate params when navigating
+watch(() => route.path, () => {
+    generateSSOParams()
+})
 
 const handleRegister = async () => {
     if (password.value !== confirmPassword.value) {
@@ -32,114 +62,217 @@ const handleRegister = async () => {
   <div class="split-screen">
     <!-- Left Side: Brand/Visuals -->
     <div class="panel-visual">
-       <!-- Animation Component -->
-       <NetworkBackground />
+      <!-- Animation Component -->
+      <NetworkBackground />
        
       <div class="visual-content">
         <div class="brand-container">
-            <img src="/logo.svg" alt="IoTNet Logo" class="brand-logo-large" />
+          <img
+            src="/logo.svg"
+            alt="IoTNet Logo"
+            class="brand-logo-large"
+          >
         </div>
         <div class="quote-container">
-            <transition name="fade" mode="out-in">
-              <p class="brand-quote" :key="currentQuote.text">"{{ currentQuote.text }}"</p>
-            </transition>
-            <span class="brand-author">— {{ currentQuote.author }}</span>
+          <transition
+            name="fade"
+            mode="out-in"
+          >
+            <p
+              :key="currentQuote.text"
+              class="brand-quote"
+            >
+              "{{ currentQuote.text }}"
+            </p>
+          </transition>
+          <span class="brand-author">— {{ currentQuote.author }}</span>
         </div>
       </div>
-      <div class="overlay-gradient"></div>
+      <div class="overlay-gradient" />
     </div>
 
     <!-- Right Side: Register Form -->
     <div class="panel-form">
       <div class="form-container">
         <div class="form-header">
-          <img src="/logo.svg" alt="IoTNet Logo" class="brand-logo-mobile" />
+          <img
+            src="/logo.svg"
+            alt="IoTNet Logo"
+            class="brand-logo-mobile"
+          >
           <h1>Create Account</h1>
           <p>Get started with your free account today.</p>
         </div>
 
-        <form @submit.prevent="handleRegister" class="auth-form">
+        <form
+          class="auth-form"
+          @submit.prevent="handleRegister"
+        >
           <div class="input-group">
             <label for="username">Username</label>
             <div class="input-wrapper">
-                <input 
-                type="text" 
+              <input 
                 id="username" 
                 v-model="username" 
+                type="text" 
                 placeholder="johndoe" 
                 required
                 minlength="3"
-                />
+              >
             </div>
           </div>
 
           <div class="input-group">
             <label for="email">Email Address</label>
             <div class="input-wrapper">
-                <input 
-                type="email" 
+              <input 
                 id="email" 
                 v-model="email" 
+                type="email" 
                 placeholder="john@example.com" 
                 required
-                />
+              >
             </div>
           </div>
 
           <div class="input-group">
-             <label for="password">Password</label>
-             <div class="input-wrapper">
-                <input 
-                :type="showPassword ? 'text' : 'password'" 
+            <label for="password">Password</label>
+            <div class="input-wrapper">
+              <input 
                 id="password" 
                 v-model="password" 
+                :type="showPassword ? 'text' : 'password'" 
                 placeholder="••••••••" 
                 required
                 minlength="6"
-                />
-                <button type="button" class="toggle-password" @click="togglePassword">
-                    <!-- Eye Icon (Show) -->
-                    <svg v-if="!showPassword" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                    <!-- Eye Off Icon (Hide) -->
-                    <svg v-else xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                </button>
-             </div>
+              >
+              <button
+                type="button"
+                class="toggle-password"
+                @click="togglePassword"
+              >
+                <!-- Eye Icon (Show) -->
+                <svg
+                  v-if="!showPassword"
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                ><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle
+                  cx="12"
+                  cy="12"
+                  r="3"
+                /></svg>
+                <!-- Eye Off Icon (Hide) -->
+                <svg
+                  v-else
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                ><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line
+                  x1="1"
+                  y1="1"
+                  x2="23"
+                  y2="23"
+                /></svg>
+              </button>
+            </div>
           </div>
 
           <div class="input-group">
-             <label for="confirmPassword">Confirm Password</label>
-             <div class="input-wrapper">
-                <input 
-                :type="showConfirmPassword ? 'text' : 'password'" 
+            <label for="confirmPassword">Confirm Password</label>
+            <div class="input-wrapper">
+              <input 
                 id="confirmPassword" 
                 v-model="confirmPassword" 
+                :type="showConfirmPassword ? 'text' : 'password'" 
                 placeholder="••••••••" 
                 required
                 minlength="6"
-                />
-                <button type="button" class="toggle-password" @click="toggleConfirmPassword">
-                    <svg v-if="!showConfirmPassword" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                    <svg v-else xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                </button>
-             </div>
+              >
+              <button
+                type="button"
+                class="toggle-password"
+                @click="toggleConfirmPassword"
+              >
+                <svg
+                  v-if="!showConfirmPassword"
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                ><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle
+                  cx="12"
+                  cy="12"
+                  r="3"
+                /></svg>
+                <svg
+                  v-else
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                ><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line
+                  x1="1"
+                  y1="1"
+                  x2="23"
+                  y2="23"
+                /></svg>
+              </button>
+            </div>
           </div>
 
-          <div v-if="passwordMismatch" class="error-alert">
+          <div
+            v-if="passwordMismatch"
+            class="error-alert"
+          >
             <p>Passwords do not match.</p>
           </div>
 
-          <div v-if="authStore.error" class="error-alert">
+          <div
+            v-if="authStore.error"
+            class="error-alert"
+          >
             <p>{{ authStore.error }}</p>
           </div>
 
-          <button type="submit" :disabled="authStore.loading" class="btn-primary">
+          <button
+            type="submit"
+            :disabled="authStore.loading"
+            class="btn-primary"
+          >
             <span v-if="authStore.loading">Creating account...</span>
             <span v-else>Create Account</span>
           </button>
         </form>
 
         <div class="form-footer">
-          <p>Already have an account? <RouterLink to="/login">Sign in</RouterLink></p>
+          <p>
+            Already have an account? <RouterLink to="/login">
+              Sign in
+            </RouterLink>
+          </p>
         </div>
       </div>
     </div>
@@ -198,7 +331,7 @@ const handleRegister = async () => {
 
 .brand-logo-mobile {
   display: block;
-  height: 40px;
+  height: 56px;
   width: auto;
   margin: 0 auto 1.5rem auto;
 }
@@ -207,35 +340,6 @@ const handleRegister = async () => {
   .brand-logo-mobile {
     display: none;
   }
-}
-
-@media (min-width: 1024px) {
-  .panel-visual {
-    display: flex;
-  }
-}
-
-.overlay-gradient {
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: linear-gradient(to bottom, rgba(15, 23, 42, 0.8), rgba(15, 23, 42, 0.4));
-  z-index: 1;
-}
-
-.visual-content {
-  position: relative;
-  z-index: 10;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
-
-.brand-title {
-  font-size: 2.5rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: white;
 }
 
 .quote-container {
@@ -268,6 +372,13 @@ const handleRegister = async () => {
   padding: 2rem;
 }
 
+/* Mobile: Full width, reduced padding */
+@media (max-width: 640px) {
+  .panel-form {
+    padding: 1.5rem 1rem;
+  }
+}
+
 .form-container {
   width: 100%;
   max-width: 420px;
@@ -278,6 +389,13 @@ const handleRegister = async () => {
   margin-bottom: 3rem;
 }
 
+/* Mobile: Reduce spacing */
+@media (max-width: 640px) {
+  .form-header {
+    margin-bottom: 2rem;
+  }
+}
+
 .form-header h1 {
   font-size: 2rem;
   font-weight: 700;
@@ -286,15 +404,36 @@ const handleRegister = async () => {
   letter-spacing: -0.01em;
 }
 
+/* Mobile: Smaller heading */
+@media (max-width: 640px) {
+  .form-header h1 {
+    font-size: 1.75rem;
+  }
+}
+
 .form-header p {
   color: var(--color-text-muted);
   font-size: 1rem;
+}
+
+/* Mobile: Smaller text */
+@media (max-width: 640px) {
+  .form-header p {
+    font-size: 0.9rem;
+  }
 }
 
 .auth-form {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+}
+
+/* Mobile: Slightly reduce gap */
+@media (max-width: 640px) {
+  .auth-form {
+    gap: 1rem;
+  }
 }
 
 .input-group {
@@ -318,6 +457,8 @@ const handleRegister = async () => {
 .input-wrapper input, .input-wrapper select {
     width: 100%;
     padding-right: 2.5rem;
+    min-height: 44px; /* Touch-friendly */
+    font-size: 16px; /* Prevent iOS zoom */
 }
 
 /* Password Toggle Config */
@@ -326,11 +467,14 @@ const handleRegister = async () => {
     right: 0.75rem;
     background: none;
     border: none;
-    padding: 0;
+    padding: 0.5rem; /* Larger touch target */
+    min-width: 44px;
+    min-height: 44px;
     color: #94a3b8;
     cursor: pointer;
     display: flex;
     align-items: center;
+    justify-content: center;
     transition: color 0.2s;
 }
 
@@ -348,11 +492,32 @@ const handleRegister = async () => {
   text-align: center;
 }
 
+.btn-primary {
+  min-height: 48px; /* Touch-friendly */
+  font-size: 1rem;
+}
+
+/* Mobile: Larger button */
+@media (max-width: 640px) {
+  .btn-primary {
+    min-height: 52px;
+    font-size: 1.05rem;
+  }
+}
+
 .form-footer {
   margin-top: 2.5rem;
   text-align: center;
   font-size: 0.95rem;
   color: var(--color-text-muted);
+}
+
+/* Mobile: Reduce spacing */
+@media (max-width: 640px) {
+  .form-footer {
+    margin-top: 2rem;
+    font-size: 0.9rem;
+  }
 }
 
 /* Fade Transition for Quotes */

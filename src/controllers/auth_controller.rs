@@ -7,15 +7,7 @@ use actix_web::{
     cookie::{Cookie, SameSite},
     web, HttpMessage, HttpResponse, Responder,
 };
-use serde::Serialize;
 use std::sync::Arc;
-
-/// Register response with ID and access token
-#[derive(Serialize)]
-struct RegisterResponse {
-    user_id: uuid::Uuid,
-    access_token: String,
-}
 
 /// Register a new user
 use crate::middlewares::api_key_middleware::TenantId;
@@ -45,10 +37,10 @@ pub async fn register(
 
     Ok(HttpResponse::Created().json(SuccessResponseDTO::new(
         "User registered successfully",
-        RegisterResponse {
-            user_id: auth_response.user.id,
-            access_token: auth_response.access_token,
-        },
+        serde_json::json!({
+            "user_id": auth_response.user_id,
+            "access_token": auth_response.access_token
+        }),
     )))
 }
 
@@ -88,7 +80,12 @@ pub async fn login(
 
     Ok(HttpResponse::Ok()
         .cookie(cookie)
-        .json(SuccessResponseDTO::new("Login successful", auth_response)))
+        .json(SuccessResponseDTO::new(
+            "Login successful",
+            serde_json::json!({
+                "access_token": auth_response.access_token
+            })
+        )))
 }
 
 /// Logs out a user by clearing the refresh token cookie and deleting the session.

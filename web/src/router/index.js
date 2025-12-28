@@ -1,18 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
-import Login from '../views/Login.vue'
-import Register from '../views/Register.vue'
-import Home from '../views/Home.vue'
 
 const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
     routes: [
-        {
-            path: '/',
-            name: 'home',
-            component: Home,
-            meta: { requiresAuth: true, title: 'Dashboard' }
-        },
         {
             path: '/login',
             name: 'login',
@@ -28,13 +19,23 @@ const router = createRouter({
     ]
 })
 
+// SSO: Store redirect params in sessionStorage when navigating to login/register
 router.beforeEach(async (to, from, next) => {
     const authStore = useAuthStore()
 
-    // Wait for auth initialization if first load
-    // If we are doing "refreshToken on App mount", we might need to wait here or let the App component handle the initial check.
-    // However, navigation guards run *before* the component mounts. 
-    // We can trigger the refresh here if not initialized.
+    // Parse SSO params from URL for login/register pages
+    // Store redirect_uri and tenant_id in sessionStorage
+    // state and nonce will be generated fresh in the component
+    if (to.name === 'login' || to.name === 'register') {
+        const redirectUri = to.query.redirect_uri
+        const tenantId = to.query.tenant_id
+
+        if (redirectUri) {
+            sessionStorage.setItem('sso_redirect_uri', redirectUri)
+            if (tenantId) sessionStorage.setItem('sso_tenant_id', tenantId)
+        }
+    }
+
     if (to.meta.title) {
         document.title = `${to.meta.title} - IoTNet`
     }
@@ -43,10 +44,20 @@ router.beforeEach(async (to, from, next) => {
         await authStore.refreshToken()
     }
 
-    if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-        next({ name: 'login' })
-    } else if (to.meta.guestOnly && authStore.isAuthenticated) {
-        next({ name: 'home' })
+    // Only login and register routes exist, both are guest-only
+    if (to.meta.guestOnly && authStore.isAuthenticated) {
+        // User is authenticated but trying to access guest-only page
+        // Redirect back to calling app if SSO, otherwise stay
+        const redirectUri = sessionStorage.getItem('sso_redirect_uri')
+        if (redirectUri) {
+            const state = authStore.ssoState || ''
+            sessionStorage.removeItem('sso_redirect_uri')
+            sessionStorage.removeItem('sso_tenant_id')
+            authStore.ssoState = null
+            authStore.ssoNonce = null
+            const separator = redirectUri.includes('?') ? '&' : '?'
+            window.location.href = `${redirectUri}${separator}access_token=${authStore.accessToken}&state=${state}`
+        }
     } else {
         next()
     }
