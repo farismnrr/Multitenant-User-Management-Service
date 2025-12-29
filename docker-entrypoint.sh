@@ -3,6 +3,9 @@ set -e
 
 echo "🚀 Starting User Auth Plugin..."
 
+# Trap signals for graceful shutdown
+trap 'echo "🛑 Shutting down..."' SIGTERM SIGINT
+
 # ============================================================================
 # Auto Migration
 # ============================================================================
@@ -28,10 +31,18 @@ else
     echo "📦 Using PostgreSQL database at ${DB_HOST}:${DB_PORT}/${DB_NAME}"
 fi
 
+# Validation: Check for supported CORE_DB_TYPE
+if [ "$CORE_DB_TYPE" != "sqlite" ] && [ "$CORE_DB_TYPE" != "postgres" ]; then
+  echo "❌ Unsupported CORE_DB_TYPE: $CORE_DB_TYPE"
+  exit 1
+fi
+
 # Run migrations
 if [ -f "/app/migration" ]; then
     echo "⬆️  Running migrations..."
-    /app/migration up && echo "✅ Migrations completed successfully" || echo "⚠️  Migration warning (may already be up-to-date)"
+    echo "⬆️  Running migrations..."
+    /app/migration up
+    echo "✅ Migrations completed successfully"
 else
     echo "⚠️  Migration binary not found, skipping migrations"
 fi

@@ -221,7 +221,7 @@ pub async fn run_server() -> std::io::Result<()> {
     std::fs::create_dir_all("assets").ok();
 
     // CORS Configuration
-    let allowed_origins_raw = std::env::var("ALLOWED_ORIGINS").unwrap_or_else(|_| "http://localhost:5173".to_string());
+    let allowed_origins_raw = std::env::var("ALLOWED_ORIGINS").unwrap_or_else(|_| "http://localhost:3000".to_string());
     let allowed_origins: Arc<Vec<String>> = Arc::new(
         allowed_origins_raw.split(',')
             .map(|s| s.trim().to_string())
@@ -251,7 +251,7 @@ pub async fn run_server() -> std::io::Result<()> {
             cors = cors.allowed_origin(origin);
         }
 
-        App::new()
+        let mut app = App::new()
             .app_data(web::Data::from(secret_for_factory.clone()))
             .app_data(web::Data::from(db_for_factory.clone()))
             .app_data(web::JsonConfig::default()
@@ -279,15 +279,20 @@ pub async fn run_server() -> std::io::Result<()> {
                     .configure(user_routes::configure_user_routes)
             )
             
-            .configure(auth_routes::configure_routes)
+            .configure(auth_routes::configure_routes);
 
-            .service(
+        // Only serve static files if web/dist exists (production mode)
+        if std::path::Path::new("./web/dist").exists() {
+            app = app.service(
                 actix_files::Files::new("/", "./web/dist")
                     .index_file("index.html")
                     .default_handler(
                         web::to(|| actix_files::NamedFile::open_async("./web/dist/index.html"))
                     )
-            )
+            );
+        }
+
+        app
     })
     .bind(("0.0.0.0", 5500))?;
 

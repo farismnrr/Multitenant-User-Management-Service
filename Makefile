@@ -1,6 +1,6 @@
 # User Auth Plugin - Makefile for Development Automation
 
-.PHONY: help dev start install-watch build test test-integration test-e2e test-e2e-pre test-e2e-auth test-e2e-tenant test-e2e-user migrate-up migrate-down migrate-fresh db-reset clean kill key
+.PHONY: help dev start install-watch build test test-integration test-e2e test-e2e-pre test-e2e-auth test-e2e-tenant test-e2e-user migrate-up migrate-down migrate-fresh db-reset clean kill key start-postgres stop-postgres
 
 
 # Default target
@@ -25,10 +25,15 @@ help:
 	@echo "  make test-e2e-auth    - Run auth tests"
 	@echo "  make test-e2e-tenant  - Run tenant tests"
 	@echo "  make test-e2e-user    - Run user tests"
+	@echo "  make start-web        - Build frontend and serve from Rust (static)"
+	@echo "  make dev-web          - Run frontend with Vite hot reload (port 5173)"
+	@echo "  make dev-all          - Run backend + frontend (static build mode)"
 	@echo "  make migrate-up       - Run database migrations"
 	@echo "  make migrate-down     - Rollback last migration"
 	@echo "  make migrate-fresh    - Drop all tables and re-run migrations"
 	@echo "  make db-reset         - Reset database (fresh + seed if available)"
+	@echo "  make start-postgres   - Start PostgreSQL container"
+	@echo "  make stop-postgres    - Stop PostgreSQL container"
 	@echo "  make clean            - Clean build artifacts"
 	@echo "  make kill             - Kill process running on PORT (from .env)"
 	@echo "  make key              - Generate a random SHA-512 key"
@@ -45,15 +50,22 @@ start:
 	@echo "🚀 Starting development server (no hot reload)..."
 	cargo run
 
-# Run web frontend
+# Run web frontend (static build, served from Rust)
 start-web:
-	@echo "🚀 Starting Web Frontend..."
+	@echo "🔨 Building Web Frontend..."
+	@cd web && npm run build
+	@echo "✅ Frontend built and ready to be served from Rust (port 5500)"
+
+# Run web frontend (hot reload with Vite dev server)
+dev-web:
+	@echo "🚀 Starting Web Frontend (Vite hot reload)..."
 	@cd web && npm run dev
 
-# Run both backend and frontend concurrently
+# Run both backend and frontend concurrently (static build mode)
 dev-all:
-	@echo "🚀 Starting User Auth Plugin (Backend + Frontend)..."
-	@make -j 2 dev start-web
+	@echo "🚀 Starting User Auth Plugin (Backend + Frontend static)..."
+	@make start-web
+	@make dev
 
 # Install cargo-watch for hot reload
 install-watch:
@@ -69,30 +81,36 @@ build:
 # --- Docker Configuration ---
 DOCKER_IMAGE_NAME = user_auth_plugin
 GHCR_REPO = ghcr.io/farismnrr/user_auth_plugin
-DOCKER_TAG = latest
 
 # Build via Docker
 build-docker:
-	@echo "🐳 Building Docker image..."
-	docker build -t $(DOCKER_IMAGE_NAME) .
+	@read -p "Enter Docker tag (default: latest): " tag; \
+	tag=$${tag:-latest}; \
+	echo "🐳 Building Docker image with tag: $$tag..."; \
+	docker build -t $(DOCKER_IMAGE_NAME):$$tag -t $(GHCR_REPO):$$tag .; \
+	echo "✅ Image tagged as $(DOCKER_IMAGE_NAME):$$tag and $(GHCR_REPO):$$tag"
 
 # Run via Docker (with .env and host network)
 start-docker:
-	@echo "🚀 Starting Docker container..."
-	docker run --rm -it --network="host" --env-file .env $(DOCKER_IMAGE_NAME)
+	@read -p "Enter Docker tag to run (default: latest): " tag; \
+	tag=$${tag:-latest}; \
+	echo "🚀 Starting Docker container with tag: $$tag..."; \
+	docker run --rm -it --network="host" --env-file .env $(DOCKER_IMAGE_NAME):$$tag
 
 # Push to GHCR (reads env vars) - Multi-arch build
 push:
-	@echo "🚀 Pushing to GHCR with multi-arch build (amd64, arm64)..."
-	@export $$(grep -v '^#' .env | grep -v '^$$' | xargs); \
+	@read -p "Enter Docker tag to push (default: latest): " tag; \
+	tag=$${tag:-latest}; \
+	echo "🚀 Pushing to GHCR with multi-arch build (amd64, arm64) - tag: $$tag..."; \
+	export $$(grep -v '^#' .env | grep -v '^$$' | xargs); \
 	if [ -n "$${CR_PAT}" ] || [ -n "$${GITHUB_TOKEN}" ]; then \
 		echo "🔐 Logging in to GHCR..."; \
 		echo "$${CR_PAT:-$$GITHUB_TOKEN}" | docker login ghcr.io -u farismnrr --password-stdin; \
 	else \
 		echo "⚠️  No CR_PAT or GITHUB_TOKEN found. Skipping login (assuming already logged in)..."; \
-	fi
-	docker buildx build --platform linux/amd64,linux/arm64 -t $(GHCR_REPO):$(DOCKER_TAG) --push .
-	@echo "✅ Image pushed to $(GHCR_REPO):$(DOCKER_TAG)"
+	fi; \
+	docker buildx build --platform linux/amd64,linux/arm64 -t $(GHCR_REPO):$$tag --push .; \
+	echo "✅ Image pushed to $(GHCR_REPO):$$tag"
 
 # --- Docker Compose Configuration ---
 
@@ -121,8 +139,20 @@ update:
 		--run-once \
 		user_auth_plugin
 
+# --- PostgreSQL Management ---
+
+# Start PostgreSQL container (from Postgres-Production)
+start-postgres:
+	@echo "🐘 Starting PostgreSQL container..."
+	@cd ../Postgres-Production && make start
+
+# Stop PostgreSQL container
+stop-postgres:
+	@echo "🛑 Stopping PostgreSQL container..."
+	@cd ../Postgres-Production && make stop
+
 # Run all tests
-test:
+test: start-postgres
 	@echo "🧪 Running all tests..."
 	cargo test -- --test-threads=1
 
@@ -135,7 +165,7 @@ test-integration:
 JEST_DIR = tests/e2e/jest
 
 # Run all E2E tests (Jest)
-test-e2e:
+test-e2e: start-postgres
 	@echo "🧪 Running all E2E tests (Jest)..."
 	@cd $(JEST_DIR) && npx jest --runInBand
 
@@ -180,8 +210,8 @@ define create_db_if_not_exists
 	if [ "$$CORE_DB_TYPE" = "sqlite" ]; then \
 		echo "📦 Using SQLite database (file-based)"; \
 	else \
-		docker exec postgres-sql psql -U $$CORE_DB_USER -tc "SELECT 1 FROM pg_database WHERE datname = '$$CORE_DB_NAME'" | grep -q 1 || \
-		docker exec postgres-sql psql -U $$CORE_DB_USER -c "CREATE DATABASE $$CORE_DB_NAME"; \
+		docker exec postgres-sql psql -U 5c964c2b206140738bf8e92325746465 -d postgres -tc "SELECT 1 FROM pg_database WHERE datname = '$$CORE_DB_NAME'" | grep -q 1 || \
+		docker exec postgres-sql psql -U 5c964c2b206140738bf8e92325746465 -d postgres -c "CREATE DATABASE $$CORE_DB_NAME OWNER $$CORE_DB_USER"; \
 	fi
 endef
 

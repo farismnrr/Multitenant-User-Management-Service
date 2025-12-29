@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y \
     clang \
     cmake \
     make \
+    binutils \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -31,7 +32,9 @@ RUN mkdir -p src && echo "fn main() {}" > src/main.rs && \
     echo "pub fn lib() {}" > migration/src/lib.rs
 
 # Build dependencies (cached layer)
-RUN cargo build --release 2>/dev/null || true
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/usr/local/cargo/git \
+    cargo build --release 2>/dev/null || true
 
 # Remove dummy files and copy real source code
 RUN rm -rf src migration/src
@@ -40,8 +43,12 @@ COPY src src/
 COPY migration/src migration/src/
 
 # Build the actual application
-RUN touch src/main.rs src/lib.rs migration/src/main.rs migration/src/lib.rs && \
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/usr/local/cargo/git \
+    touch src/main.rs src/lib.rs migration/src/main.rs migration/src/lib.rs && \
     cargo build --release --workspace && \
+    strip --strip-debug target/release/user-auth-plugin && \
+    strip --strip-debug target/release/migration && \
     ls -la target/release
 
 # ============================================================================
@@ -132,6 +139,7 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     libssl3 \
     curl \
+    dumb-init \
     && rm -rf /var/lib/apt/lists/*
 
 # Create app user for security
@@ -142,6 +150,9 @@ WORKDIR /app
 # Copy backend binary
 COPY --from=rust-builder /app/target/release/user-auth-plugin ./user-auth-plugin
 COPY --from=rust-builder /app/target/release/migration ./migration
+
+# Hardening: Make binaries immutable
+RUN chmod 0555 ./user-auth-plugin ./migration
 
 # Copy frontend build output
 COPY --from=frontend-builder /app/web/dist ./web/dist
@@ -167,4 +178,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:5500/health || exit 1
 
 # Set entrypoint
-ENTRYPOINT ["/app/docker-entrypoint.sh"]
+ENTRYPOINT ["/usr/bin/dumb-init", "--", "/app/docker-entrypoint.sh"]
