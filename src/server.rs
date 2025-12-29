@@ -229,7 +229,13 @@ pub async fn run_server() -> std::io::Result<()> {
             .collect()
     );
 
-    info!("🚀 Actix server running on http://0.0.0.0:5500");
+    let server_host = std::env::var("SERVER_HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
+    let server_port: u16 = std::env::var("SERVER_PORT")
+        .unwrap_or_else(|_| "8080".to_string())
+        .parse()
+        .unwrap_or(8080);
+
+    info!("🚀 Actix server running on http://{}:{}", server_host, server_port);
 
     let db_for_factory = db.clone();
 
@@ -294,7 +300,7 @@ pub async fn run_server() -> std::io::Result<()> {
 
         app
     })
-    .bind(("0.0.0.0", 5500))?;
+    .bind((server_host.as_str(), server_port))?;
 
     // ================================================================================================
     // 🛑 SHUTDOWN SECTION

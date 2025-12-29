@@ -1,9 +1,10 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useQuotes } from '../composables/useQuotes'
 import { usePasswordToggle } from '../composables/usePasswordToggle'
+import { useSSO } from '../composables/useSSO'
 import NetworkBackground from '../components/NetworkBackground.vue'
 
 const authStore = useAuthStore()
@@ -15,34 +16,8 @@ const { showPassword, togglePassword } = usePasswordToggle()
 // Use shared quotes composable
 const { currentQuote } = useQuotes()
 
-// Generate fresh state and nonce on page load and route change
-const generateSSOParams = () => {
-    const redirectUri = sessionStorage.getItem('sso_redirect_uri')
-    const tenantId = sessionStorage.getItem('sso_tenant_id')
-    
-    if (redirectUri && tenantId) {
-        // Generate fresh state and nonce
-        const state = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
-        const nonce = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
-        
-        // Store in Pinia (memory, not localStorage)
-        authStore.ssoState = state
-        authStore.ssoNonce = nonce
-        
-        // Update URL with full params without redirecting
-        const newUrl = `${window.location.pathname}?tenant_id=${tenantId}&redirect_uri=${redirectUri}&response_type=code&scope=openid&state=${state}&nonce=${nonce}`
-        window.history.replaceState({}, '', newUrl)
-    }
-}
-
-onMounted(() => {
-    generateSSOParams()
-})
-
-// Watch route changes to regenerate params when navigating
-watch(() => route.path, () => {
-    generateSSOParams()
-})
+// Use shared SSO composable
+useSSO()
 
 const handleLogin = async () => {
     await authStore.login(username.value, password.value)
@@ -187,7 +162,7 @@ const handleLogin = async () => {
 
         <div class="form-footer">
           <p>
-            New to IoTNet? <RouterLink to="/register">
+            New to IoTNet? <RouterLink :to="{ path: '/register', query: route.query }">
               Create an account
             </RouterLink>
           </p>

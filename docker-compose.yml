@@ -1,12 +1,22 @@
 services:
   user-auth-plugin:
     image: ghcr.io/farismnrr/user_auth_plugin:latest
+    pull_policy: always
     container_name: user_auth_plugin
     user: "1000:1000"
     env_file:
       - .env
-    network_mode: "host"
+    ports:
+      - "8086:5500"
     volumes:
       - ./logs:/app/logs
       - ./assets:/app/assets
     restart: always
+    networks:
+      - postgres-network
+
+networks:
+  postgres-network:
+    name: postgres_postgres-network
+    external: true
+
