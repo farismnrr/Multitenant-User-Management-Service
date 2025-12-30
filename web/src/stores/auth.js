@@ -19,6 +19,20 @@ export const useAuthStore = defineStore('auth', () => {
     const ssoState = ref(null)
     const ssoNonce = ref(null)
 
+    // Helper to validate redirect URIs derived from user-controlled input
+    const isSafeRedirectUri = (redirectUri) => {
+        if (!redirectUri) return false
+        try {
+            // Support both absolute URLs and paths relative to this origin
+            const url = new URL(redirectUri, window.location.origin)
+            // Only allow http/https and same-origin redirects
+            return (url.protocol === 'http:' || url.protocol === 'https:') &&
+                url.origin === window.location.origin
+        } catch {
+            return false
+        }
+    }
+
     // Getters
     const isAuthenticated = computed(() => !!accessToken.value)
 
@@ -60,7 +74,7 @@ export const useAuthStore = defineStore('auth', () => {
                 const redirectUri = urlParams.get('redirect_uri') || sessionStorage.getItem('sso_redirect_uri')
                 const state = ssoState.value || ''
 
-                if (redirectUri) {
+                if (redirectUri && isSafeRedirectUri(redirectUri)) {
                     // Clear SSO data
                     sessionStorage.removeItem('sso_redirect_uri')
                     sessionStorage.removeItem('sso_tenant_id')
@@ -68,7 +82,7 @@ export const useAuthStore = defineStore('auth', () => {
                     ssoNonce.value = null
 
                     // Redirect back to calling app with access_token in hash fragment
-                    const finalUrl = `${redirectUri}#access_token=${access_token}&state=${state}`
+                    const finalUrl = `${redirectUri}#access_token=${encodeURIComponent(access_token)}&state=${encodeURIComponent(state)}`
 
                     // Don't set loading=false, just redirect immediately
                     window.location.href = finalUrl
