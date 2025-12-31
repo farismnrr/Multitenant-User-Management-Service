@@ -53,7 +53,7 @@ start:
 # Run web frontend (static build, served from Rust)
 start-web:
 	@echo "🔨 Building Web Frontend..."
-	@cd web && npm run build
+	@cd web && npm install && npm run build
 	@echo "✅ Frontend built and ready to be served from Rust (port 5500)"
 
 # Run web frontend (hot reload with Vite dev server)

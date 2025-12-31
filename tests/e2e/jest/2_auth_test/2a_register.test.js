@@ -318,4 +318,29 @@ describe('POST /auth/register - Register User', () => {
         }
     });
 
+    // 17. Duplicate registration (Same Tenant) - Role Admin
+    test('Scenario 17: Duplicate registration (Same Tenant) - Role Admin', async () => {
+        // First register
+        const user = {
+            username: `dup_admin_${Date.now()}`,
+            email: `dup_admin_${Date.now()}@test.com`,
+            password: "Password123!",
+            role: "admin"
+        };
+        // Register admin
+        await axios.post(`${BASE_URL}/auth/register`, user, { headers: { 'X-API-Key': API_KEY } });
+
+        // Register again same admin (Same Tenant)
+        try {
+            await axios.post(`${BASE_URL}/auth/register`, user, { headers: { 'X-API-Key': API_KEY } });
+            throw new Error('Should have failed');
+        } catch (error) {
+            expect(error.response.status).toBe(409);
+            expect(error.response.data).toEqual(expect.objectContaining({
+                status: false,
+                message: expect.stringMatching(/Email already exists/i)
+            }));
+        }
+    });
+
 });

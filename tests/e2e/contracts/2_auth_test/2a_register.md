@@ -357,3 +357,92 @@ Register a new user account.
   ```
   *(Status: 422)*
 - **Side Effects**: None.
+
+### 16. Validation: Redirect URI not in allowed origins
+- **URL**: `http://localhost:5500/auth/register`
+- **Method**: `POST`
+- **Pre-conditions**: None.
+- **Request Body**:
+  ```json
+  {
+    "username": "<unique_username>",
+    "email": "<unique_email>",
+    "password": "StrongPassword123!",
+    "role": "user",
+    "redirect_uri": "https://evil-site.com/callback"
+  }
+  ```
+- **Expected Response**:
+  ```json
+  {
+    "status": false,
+    "message": "Forbidden / not in allowed origins"
+  }
+  ```
+  *(Status: 403)*
+- **Side Effects**: None.
+
+### 17. Strict User Uniqueness (Cross-Tenant)
+- **Description**: Role 'user' MUST be unique globally across all tenants.
+- **Pre-conditions**: User exists in Tenant A.
+- **Request Body** (Tenant B):
+  ```json
+  {
+    "username": "<existing_username>",
+    "email": "<existing_email>",
+    "password": "StrongPassword123!",
+    "role": "user"
+  }
+  ```
+- **Expected Response**:
+  ```json
+  {
+    "status": false,
+    "message": "Email/Username already exists"
+  }
+  ```
+  *(Status: 409 Conflict)*
+
+### 18. Linked Admin Registration (Cross-Tenant - Success)
+- **Description**: Role 'admin' (or non-user) can register in new tenant if password matches existing account.
+- **Pre-conditions**: Admin exists in Tenant A. Correct password provided.
+- **Request Body** (Tenant B):
+  ```json
+  {
+    "username": "<existing_admin>",
+    "email": "<existing_email>",
+    "password": "<CORRECT_PASSWORD>",
+    "role": "admin"
+  }
+  ```
+- **Expected Response**:
+  ```json
+  {
+    "status": true,
+    "message": "User registered successfully",
+    "data": { "user_id": "<EXISTING_UUID>" }
+  }
+  ```
+  *(Status: 201 Created)*
+- **Side Effects**: User added to Tenant B with 'admin' role. Shared identity.
+
+### 19. Linked Admin Registration (Cross-Tenant - Password Mismatch)
+- **Description**: Role 'admin' registration fails if password does not match existing account.
+- **Pre-conditions**: Admin exists in Tenant A. Wrong password provided.
+- **Request Body** (Tenant B):
+  ```json
+  {
+    "username": "<existing_admin>",
+    "email": "<existing_email>",
+    "password": "<WRONG_PASSWORD>",
+    "role": "admin"
+  }
+  ```
+- **Expected Response**:
+  ```json
+  {
+    "status": false,
+    "message": "Email/Username already exists"
+  }
+  ```
+  *(Status: 409 Conflict)*

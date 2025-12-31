@@ -34,7 +34,8 @@ const handleRegister = async () => {
         return
     }
     authStore.error = null
-    await authStore.register(username.value, email.value, password.value, 'user')
+    const role = route.query.role || 'user'
+    await authStore.register(username.value, email.value, password.value, role)
 }
 </script>
 

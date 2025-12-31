@@ -107,53 +107,15 @@ impl AuthUseCase {
             return Err(err);
         }
 
-        // Step 1: Check if user exists globally (by email) included soft-deleted
-        // Normalize email to lowercase for case-insensitive comparison
+        // Step 1: Check if user exists (Global Check)
         let normalized_email = req.email.to_lowercase();
-        let (user, is_restored) = match self.repository.find_by_email_with_deleted(&normalized_email).await? {
-            Some(existing_user) => {
-                log::debug!("Register flow found user: {:?} (Active: {})", existing_user.id, existing_user.deleted_at.is_none());
-                if existing_user.deleted_at.is_none() {
-                    // User exists and is active - email already in use
-                    let err = AppError::Conflict("Email already exists".to_string());
-                    self.log_activity_failure(Some(existing_user.id), "register", &err, ip_address, user_agent)
-                        .await;
-                    return Err(err);
-                }
-
-                // Restore deleted user
-                let create_req = CreateUserRequest {
-                    username: req.username.clone(),
-                    email: normalized_email.clone(),
-                    password: req.password.clone(),
-                };
-                let restored_user = self.repository.restore(existing_user.id, create_req).await?;
-                (restored_user, true)
-            }
-            None => {
-                // Check if username exists globally
-                if self.repository.find_by_username(&req.username).await?.is_some() {
-                    let err = AppError::Conflict("Username already exists".to_string());
-                    self.log_activity_failure(None, "register", &err, ip_address.clone(), user_agent.clone())
-                        .await;
-                    return Err(err);
-                }
-
-                log::debug!("Registering new user [REDACTED] with role '{}' for tenant '{}'", req.role, req.tenant_id);
-
-                // User doesn't exist, create new user
-                let create_req = CreateUserRequest {
-                    username: req.username.clone(),
-                    email: normalized_email.clone(),
-                    password: req.password.clone(),
-                };
-                let new_user = self.repository.create(create_req).await?;
-                
-                // Create user_details for new user
-                let _ = self.user_details_repository.create(new_user.id).await?;
-                
-                (new_user, false)
-            }
+        
+        let (user, is_restored) = if let Some(existing_user) = self.repository.find_by_email_with_deleted(&normalized_email).await? {
+            self.validate_and_link_existing_user(existing_user, &req, &normalized_email, ip_address.clone(), user_agent.clone()).await?
+        } else if let Some(existing_user) = self.repository.find_by_username(&req.username).await? {
+            self.validate_and_link_existing_user(existing_user, &req, &normalized_email, ip_address.clone(), user_agent.clone()).await?
+        } else {
+             self.create_new_user(&req, &normalized_email).await?
         };
 
         // Step 2: Check if user is already assigned to this tenant
@@ -809,6 +771,68 @@ impl AuthUseCase {
     }
 
 
+
+    /// Validates an existing user for linking or checks for conflicts.
+    /// Returns (User, is_restored) if valid, or AppError if conflict.
+    async fn validate_and_link_existing_user(
+        &self,
+        existing_user: User,
+        req: &RegisterRequest,
+        normalized_email: &str,
+        ip_address: Option<String>,
+        user_agent: Option<String>,
+    ) -> Result<(User, bool), AppError> {
+        log::debug!("Register flow found user: {:?} (Active: {})", existing_user.id, existing_user.deleted_at.is_none());
+
+        // Restore deleted user
+        if existing_user.deleted_at.is_some() {
+             let create_req = CreateUserRequest {
+                username: req.username.clone(),
+                email: normalized_email.to_string(),
+                password: req.password.clone(),
+            };
+            let restored_user = self.repository.restore(existing_user.id, create_req).await?;
+            return Ok((restored_user, true));
+        }
+
+        // Active User: Guard Clause for 'user' role (Strict Unique)
+        if req.role == "user" {
+            let err = AppError::Conflict("Email or Username already exists".to_string());
+            self.log_activity_failure(Some(existing_user.id), "register", &err, ip_address, user_agent).await;
+            return Err(err);
+        }
+
+        // Active User: Guard Clause for Password Mismatch
+        if !password::verify_password(&req.password, &existing_user.password_hash)? {
+            let err = AppError::Conflict("Email or Username already exists".to_string());
+            self.log_activity_failure(Some(existing_user.id), "register", &err, ip_address, user_agent).await;
+            return Err(err);
+        }
+
+        // Success: Link existing user
+        Ok((existing_user, false))
+    }
+
+    /// Creates a new user record.
+    async fn create_new_user(
+        &self,
+        req: &RegisterRequest,
+        normalized_email: &str,
+    ) -> Result<(User, bool), AppError> {
+        log::debug!("Registering new user [REDACTED] with role '{}' for tenant '{}'", req.role, req.tenant_id);
+
+        let create_req = CreateUserRequest {
+            username: req.username.clone(),
+            email: normalized_email.to_string(),
+            password: req.password.clone(),
+        };
+        let new_user = self.repository.create(create_req).await?;
+        
+        // Create user_details for new user
+        let _ = self.user_details_repository.create(new_user.id).await?;
+        
+        Ok((new_user, false))
+    }
 
     /// Converts a User entity and UserDetails to UserResponse DTO with details.
     fn user_to_response_with_details(
