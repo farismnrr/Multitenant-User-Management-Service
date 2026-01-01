@@ -24,7 +24,7 @@ Welcome to the SSO Integration documentation for the Multi-Tenant User Managemen
 
 1. **Create a Tenant** using `make create-tenant` (see [Getting Started](./02-configuration.md))
 2. **Save the Tenant ID** returned from the command
-3. **Add your domain** to `ALLOWED_ORIGINS` in the SSO service
+3. **Add your domain** to `VITE_ALLOWED_ORIGINS` in the SSO service
 
 ---
 

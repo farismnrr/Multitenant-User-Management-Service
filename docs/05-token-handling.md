@@ -213,28 +213,24 @@ function scheduleTokenCheck() {
 ## Complete Token Flow Example
 
 ```javascript
-// 1. User clicks login
+// 1. User clicks login - only tenant_id and redirect_uri needed
 function initiateLogin() {
-    window.location.href = buildSSOUrl('/login')
+    const redirectUri = encodeURIComponent(`${window.location.origin}/callback`)
+    window.location.href = `${SSO_URL}/login?tenant_id=${TENANT_ID}&redirect_uri=${redirectUri}`
 }
 
-// 2. Handle callback
+// 2. Handle callback - SSO handles state validation internally
 function handleCallback() {
-    const { accessToken, state } = extractTokenFromHash()
+    const hash = window.location.hash.substring(1)
+    const params = new URLSearchParams(hash)
+    const accessToken = params.get('access_token')
     
     if (!accessToken) {
         throw new Error('No token received')
     }
     
-    // Validate state (CSRF protection)
-    const savedState = sessionStorage.getItem('sso_state')
-    if (state !== savedState) {
-        throw new Error('State mismatch')
-    }
-    
     // Store token
     sessionStorage.setItem('access_token', accessToken)
-    sessionStorage.removeItem('sso_state')
     
     // Clear URL
     window.history.replaceState(null, '', window.location.pathname)

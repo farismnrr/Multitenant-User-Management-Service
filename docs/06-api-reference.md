@@ -47,8 +47,8 @@ These endpoints serve the SSO web interface (for browser redirects):
 |-----------|----------|-------------|
 | `tenant_id` | Yes | Tenant UUID |
 | `redirect_uri` | Yes | Callback URL (URL-encoded) |
-| `state` | No | CSRF protection token |
-| `nonce` | No | Replay attack protection |
+
+> **Note**: `state`, `nonce`, `response_type`, and `scope` are automatically added by the SSO login page. Do not include them in your redirect URL.
 
 ---
 

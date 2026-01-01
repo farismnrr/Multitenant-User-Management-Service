@@ -78,19 +78,9 @@ export default function LoginPage() {
                     `${window.location.origin}/auth/callback`
                 )
 
-                // Generate security parameters
-                const state = crypto.randomUUID()
-                const nonce = crypto.randomUUID()
-
+                // SSO will generate state/nonce automatically
                 setStatus('Redirecting to login...')
-                window.location.href = 
-                    `${ssoUrl}/login?` +
-                    `tenant_id=${tenantId}&` +
-                    `redirect_uri=${redirectUri}&` +
-                    `response_type=code&` +
-                    `scope=openid&` +
-                    `state=${state}&` +
-                    `nonce=${nonce}`
+                window.location.href = `${ssoUrl}/login?tenant_id=${tenantId}&redirect_uri=${redirectUri}`
             } catch (error) {
                 console.error('Failed to load config:', error)
                 setStatus('Error loading configuration')
@@ -206,34 +196,19 @@ Create `src/hooks/useSSO.ts`:
 import { config } from '../config'
 
 export function useSSO() {
+    // SSO generates state/nonce automatically - client only needs tenant_id and redirect_uri
     const redirectToLogin = () => {
         const redirectUri = encodeURIComponent(
             `${window.location.origin}/auth/callback`
         )
-        const state = crypto.randomUUID()
-        const nonce = crypto.randomUUID()
-
-        window.location.href = 
-            `${config.ssoUrl}/login?` +
-            `tenant_id=${config.tenantId}&` +
-            `redirect_uri=${redirectUri}&` +
-            `state=${state}&` +
-            `nonce=${nonce}`
+        window.location.href = `${config.ssoUrl}/login?tenant_id=${config.tenantId}&redirect_uri=${redirectUri}`
     }
 
     const redirectToRegister = () => {
         const redirectUri = encodeURIComponent(
             `${window.location.origin}/auth/callback`
         )
-        const state = crypto.randomUUID()
-        const nonce = crypto.randomUUID()
-
-        window.location.href = 
-            `${config.ssoUrl}/register?` +
-            `tenant_id=${config.tenantId}&` +
-            `redirect_uri=${redirectUri}&` +
-            `state=${state}&` +
-            `nonce=${nonce}`
+        window.location.href = `${config.ssoUrl}/register?tenant_id=${config.tenantId}&redirect_uri=${redirectUri}`
     }
 
     return { redirectToLogin, redirectToRegister }
@@ -282,34 +257,19 @@ export function useSSO() {
     const ssoUrl = import.meta.env.VITE_SSO_URL || 'http://localhost:5500'
     const tenantId = import.meta.env.VITE_TENANT_ID || ''
 
+    // SSO generates state/nonce automatically - client only needs tenant_id and redirect_uri
     const redirectToLogin = () => {
         const redirectUri = encodeURIComponent(
             `${window.location.origin}/auth/callback`
         )
-        const state = crypto.randomUUID()
-        const nonce = crypto.randomUUID()
-
-        window.location.href = 
-            `${ssoUrl}/login?` +
-            `tenant_id=${tenantId}&` +
-            `redirect_uri=${redirectUri}&` +
-            `state=${state}&` +
-            `nonce=${nonce}`
+        window.location.href = `${ssoUrl}/login?tenant_id=${tenantId}&redirect_uri=${redirectUri}`
     }
 
     const redirectToRegister = () => {
         const redirectUri = encodeURIComponent(
             `${window.location.origin}/auth/callback`
         )
-        const state = crypto.randomUUID()
-        const nonce = crypto.randomUUID()
-
-        window.location.href = 
-            `${ssoUrl}/register?` +
-            `tenant_id=${tenantId}&` +
-            `redirect_uri=${redirectUri}&` +
-            `state=${state}&` +
-            `nonce=${nonce}`
+        window.location.href = `${ssoUrl}/register?tenant_id=${tenantId}&redirect_uri=${redirectUri}`
     }
 
     return { redirectToLogin, redirectToRegister }
@@ -402,18 +362,12 @@ onMounted(() => {
         const SSO_URL = 'https://sso.example.com'
         const TENANT_ID = 'your-tenant-uuid'
 
+        // SSO generates state/nonce automatically
         function buildAuthUrl(endpoint) {
             const redirectUri = encodeURIComponent(
                 `${window.location.origin}/callback.html`
             )
-            const state = crypto.randomUUID()
-            const nonce = crypto.randomUUID()
-
-            return `${SSO_URL}/${endpoint}?` +
-                   `tenant_id=${TENANT_ID}&` +
-                   `redirect_uri=${redirectUri}&` +
-                   `state=${state}&` +
-                   `nonce=${nonce}`
+            return `${SSO_URL}/${endpoint}?tenant_id=${TENANT_ID}&redirect_uri=${redirectUri}`
         }
 
         document.getElementById('loginBtn').onclick = () => {

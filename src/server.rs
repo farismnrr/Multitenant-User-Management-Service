@@ -235,8 +235,8 @@ pub async fn run_server() -> std::io::Result<()> {
     // Create assets directory if it doesn't exist
     std::fs::create_dir_all("assets").ok();
 
-    // CORS Configuration
-    let allowed_origins_raw = std::env::var("ALLOWED_ORIGINS").unwrap_or_else(|_| "http://localhost:3000".to_string());
+    // CORS Configuration - using VITE_ALLOWED_ORIGINS to share with frontend
+    let allowed_origins_raw = std::env::var("VITE_ALLOWED_ORIGINS").unwrap_or_else(|_| "http://localhost:3000".to_string());
     let allowed_origins: Arc<Vec<String>> = Arc::new(
         allowed_origins_raw.split(',')
             .map(|s| s.trim().to_string())

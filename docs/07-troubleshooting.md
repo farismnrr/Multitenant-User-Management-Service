@@ -15,10 +15,10 @@ has been blocked by CORS policy
 
 ### Solution
 
-Ensure your application domain is added to `ALLOWED_ORIGINS` in the SSO service:
+Ensure your application domain is added to `VITE_ALLOWED_ORIGINS` in the SSO service:
 
 ```env
-ALLOWED_ORIGINS=http://localhost:3000,https://app.example.com
+VITE_ALLOWED_ORIGINS=http://localhost:3000,https://app.example.com
 ```
 
 After updating, restart the SSO service:
@@ -123,41 +123,41 @@ function requireAuth() {
 
 ### Problem
 
-State validation fails after SSO redirect
+User sees state mismatch error after SSO redirect
+
+### Understanding State in This SSO
+
+> **Note**: In this SSO implementation, `state` and `nonce` are generated and validated **by the SSO service itself**, not by your client application. You should NOT generate `state` in your client.
 
 ### Causes
 
-1. User opened login in new tab
-2. State was not properly stored
-3. Multiple login attempts in parallel
+This error is rare but can occur when:
+
+1. User has multiple SSO tabs open simultaneously
+2. Browser session/storage was cleared during login
+3. User's browser blocks sessionStorage
 
 ### Solution
 
-```javascript
-// Store state before redirect
-function initiateLogin() {
-    const state = crypto.randomUUID()
-    sessionStorage.setItem('sso_state', state)  // Store it
-    
-    window.location.href = `${ssoUrl}/login?state=${state}&...`
-}
+Since state is handled by SSO, your client callback should simply extract the token:
 
-// Validate state in callback
+```javascript
 function handleCallback() {
-    const params = new URLSearchParams(window.location.hash.substring(1))
-    const returnedState = params.get('state')
-    const savedState = sessionStorage.getItem('sso_state')
+    const hash = window.location.hash.substring(1)
+    const params = new URLSearchParams(hash)
+    const accessToken = params.get('access_token')
     
-    if (returnedState !== savedState) {
-        console.error('State mismatch - clearing and retrying')
-        sessionStorage.removeItem('sso_state')
+    if (accessToken) {
+        sessionStorage.setItem('access_token', accessToken)
+        window.location.href = '/dashboard'
+    } else {
+        // No token received - redirect back to login
         window.location.href = '/auth/login'
-        return
     }
-    
-    // Continue with token handling...
 }
 ```
+
+If users consistently see state errors, check SSO service logs for details.
 
 ---
 

@@ -40,8 +40,10 @@ Single Sign-On (SSO) allows users to authenticate once with a centralized servic
 Your application redirects the user to the SSO login page with required parameters:
 
 ```
-https://sso.example.com/login?tenant_id=xxx&redirect_uri=xxx&state=xxx&nonce=xxx
+https://sso.example.com/login?tenant_id=xxx&redirect_uri=xxx
 ```
+
+> **Note**: The SSO login page automatically adds `state`, `nonce`, `response_type`, and `scope` parameters for security.
 
 ### Step 2: User Authentication
 

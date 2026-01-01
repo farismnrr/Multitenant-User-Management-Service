@@ -64,11 +64,11 @@ curl -X POST http://localhost:5500/api/tenants \
 
 ## Step 2: Configure SSO Service
 
-Ensure the SSO service's `.env` contains your application's domain in `ALLOWED_ORIGINS`:
+Ensure the SSO service's `.env` contains your application's domain in `VITE_ALLOWED_ORIGINS`:
 
 ```env
-# Allow your application to make requests
-ALLOWED_ORIGINS=http://localhost:3000,https://your-app.example.com
+# Allow your application to make requests (shared by backend + frontend)
+VITE_ALLOWED_ORIGINS=http://localhost:3000,https://your-app.example.com
 ```
 
 **Restart the SSO service after updating:**
@@ -140,7 +140,7 @@ See [Frontend Implementation](./04-frontend-implementation.md) for code examples
 |----------|-------------|
 | `TENANT_SECRET_KEY` | Secret for creating tenants via API |
 | `API_KEY` | Required header (`X-API-Key`) for auth endpoints |
-| `ALLOWED_ORIGINS` | Comma-separated list of allowed client domains |
+| `VITE_ALLOWED_ORIGINS` | Comma-separated list of allowed client domains |
 
 ### Required Headers by Endpoint
 
