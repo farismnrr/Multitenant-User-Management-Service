@@ -138,38 +138,26 @@ describe('GET /auth/verify - Verify Token', () => {
         }
     });
 
-    // 6. Security: Cross-Tenant Check
-    test('Scenario 6: Security: Cross-Tenant Check', async () => {
+    // 6. Security: Cross-Tenant Check (Relaxed - API Key not required for verify)
+    test('Scenario 6: Security: Cross-Tenant Check (Should Pass without API Key check)', async () => {
         const decoded = jwt.decode(authToken);
         const payload = { ...decoded };
         delete payload.exp;
         delete payload.iat;
 
-        // Change tenant_id to a random one
-        // Note: Ideally request should be made TO a different tenant context, 
-        // but since API Key sets tenant in middleware, we might need to change implementation strategy depending on how tenant check is done.
-        // If the token itself is valid but belongs to Tenant A, and we request Endpoint B (implied by API Key B?), it should fail.
-        // Here we can simulate by forging a token with a DIFFERENT tenant_id than the one associated with the API_KEY (since we only have one API_KEY for test).
-
         payload.tenant_id = '00000000-0000-0000-0000-000000000000'; // Dummy Tenant ID
 
         const crossTenantToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' });
 
-        try {
-            await axios.get(`${BASE_URL}/auth/verify`, {
-                headers: {
-                    'X-API-Key': API_KEY,
-                    'Authorization': `Bearer ${crossTenantToken}`
-                }
-            });
-            throw new Error('Should have failed');
-        } catch (error) {
-            // Contract checks for 403 Forbidden
-            expect([401, 403]).toContain(error.response.status);
-            if (error.response.status === 403) {
-                // Check message if relevant
+        // Should return 200 now because ApiKeyMiddleware is removed from /verify
+        const response = await axios.get(`${BASE_URL}/auth/verify`, {
+            headers: {
+                'X-API-Key': API_KEY,
+                'Authorization': `Bearer ${crossTenantToken}`
             }
-        }
+        });
+
+        expect(response.status).toBe(200);
     });
 
     // 7. User deleted but token still valid
@@ -183,8 +171,6 @@ describe('GET /auth/verify - Verify Token', () => {
 
             // 2. Delete user
             // Assuming DELETE /users deletes the *current* user based on token
-            // We need to check '4g_delete_user.md' (Step 206)
-            // It says "URL: http://localhost:5500/api/users", Method: DELETE, Pre-conditions: Valid JWT.
             await axios.delete(`${BASE_URL}/api/users`, {
                 headers: {
                     'X-API-Key': API_KEY,
@@ -205,7 +191,7 @@ describe('GET /auth/verify - Verify Token', () => {
             if (error.response.data && error.response.data !== "") {
                 expect(error.response.data).toEqual(expect.objectContaining({
                     status: false,
-                    message: "Unauthorized" // Contract says Unauthorized
+                    message: "Unauthorized"
                 }));
             }
         }
@@ -223,7 +209,25 @@ describe('GET /auth/verify - Verify Token', () => {
         expect(response.status).toBe(200);
         expect(response.data.status).toBe(true);
         expect(response.data.message).toBe("Token is valid");
-        // Contract JSON example does not show data
+
+        // Assert user data is present
+        expect(response.data.data).toBeDefined();
+        expect(response.data.data.username).toBe(testUser.username);
+        expect(response.data.data.email).toBe(testUser.email);
+    });
+
+    // 9. Verification without API Key
+    test('Scenario 9: Verification without API Key', async () => {
+        const response = await axios.get(`${BASE_URL}/auth/verify`, {
+            headers: {
+                // No X-API-Key
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+
+        expect(response.status).toBe(200);
+        expect(response.data.status).toBe(true);
+        expect(response.data.data.username).toBe(testUser.username);
     });
 
 });

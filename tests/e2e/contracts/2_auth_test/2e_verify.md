@@ -73,13 +73,9 @@ Verify JWT token and return user data.
 - **Expected Response**: Status 401.
 - **Side Effects**: None.
 
-### 6. Security: Cross-Tenant Check
-- **URL**: `http://localhost:5500/auth/verify`
-- **Method**: `GET`
-- **Pre-conditions**: Token for Tenant A, request to Tenant B.
-- **Request Body**: None.
-- **Expected Response**: Status 403 Forbidden.
-- **Side Effects**: None.
+### 6. Security: Cross-Tenant Check (Deprecated/Relaxed)
+- **Note**: With API Key requirement removed for this endpoint, this check is no longer enforced by API Key Middleware. Token validity is the only requirement.
+- **Expected Response**: Status 200 (if token is valid).
 
 ### 7. User deleted but token still valid
 - **URL**: `http://localhost:5500/auth/verify`
@@ -106,8 +102,21 @@ Verify JWT token and return user data.
   ```json
   {
     "status": true,
-    "message": "Token is valid"
+    "message": "Token is valid",
+    "data": {
+      "id": "uuid",
+      "username": "...",
+      "email": "...",
+      "role": "...",
+        ...
+    }
   }
   ```
   *(Status: 200)*
 - **Side Effects**: None.
+
+### 9. Successful verification without API Key
+- **URL**: `http://localhost:5500/auth/verify`
+- **Method**: `GET`
+- **Pre-conditions**: Valid JWT Access Token. No X-API-Key header.
+- **Expected Response**: Status 200.

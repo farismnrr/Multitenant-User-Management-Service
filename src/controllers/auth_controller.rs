@@ -212,13 +212,12 @@ pub async fn verify(
     req: actix_web::HttpRequest,
 ) -> Result<impl Responder, AppError> {
     let user_id = AuthUseCase::extract_user_id_from_request(&req)?;
-    // Verify user exists but don't return the user data to match contract
-    let _ = usecase.verify_user_exists(user_id).await?;
+    let user_response = usecase.verify_user_exists(user_id).await?;
 
-    Ok(HttpResponse::Ok().json(serde_json::json!({
-        "status": true,
-        "message": "Token is valid"
-    })))
+    Ok(HttpResponse::Ok().json(SuccessResponseDTO::new(
+        "Token is valid",
+        user_response,
+    )))
 }
 
 /// Changes the authenticated user's password.
