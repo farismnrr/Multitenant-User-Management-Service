@@ -145,11 +145,9 @@ WORKDIR /app
 
 # Copy backend binary
 COPY --from=rust-builder /app/target/release/user-auth-plugin ./user-auth-plugin
-COPY --from=rust-builder /app/target/release/user_migration ./user/migration/user_migration
-COPY --from=rust-builder /app/target/release/tenant_migration ./tenant/migration/tenant_migration
 
 # Hardening: Make binaries immutable
-RUN chmod 0555 ./user-auth-plugin ./user/migration/user_migration ./tenant/migration/tenant_migration
+RUN chmod 0555 ./user-auth-plugin
 
 # Copy frontend build output
 COPY --from=frontend-builder /app/web/dist ./web/dist
