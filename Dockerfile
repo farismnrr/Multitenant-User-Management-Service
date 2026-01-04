@@ -84,8 +84,7 @@ WORKDIR /app
 
 # Copy backend binary from builder
 COPY --from=rust-builder /app/target/release/user-auth-plugin ./
-COPY --from=rust-builder /app/target/release/user_migration ./
-COPY --from=rust-builder /app/target/release/tenant_migration ./migration
+COPY --from=rust-builder /app/target/release/migration ./migration
 # Copy test files
 COPY tests/e2e ./tests/e2e
 
@@ -111,7 +110,7 @@ WORKDIR /app
 # 3. Wait for Healthcheck
 # 4. Run Tests
 # 5. Fail build if any step fails
-RUN ./user_migration up && ./tenant_migration up && \
+RUN ./migration up && \
     (./user-auth-plugin & echo $! > server_pid) && \
     echo "Waiting for server to start..." && \
     sleep 2 && \
