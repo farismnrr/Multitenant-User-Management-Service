@@ -23,8 +23,7 @@ WORKDIR /app
 
 # Copy Cargo files first for dependency caching
 COPY Cargo.toml Cargo.lock ./
-COPY src/domains/user/migration/Cargo.toml src/domains/user/migration/
-COPY src/domains/tenant/migration/Cargo.toml src/domains/tenant/migration/
+COPY migration/Cargo.toml migration/
 
 # Create dummy source files for dependency caching
 RUN mkdir -p src && echo "fn main() {}" > src/main.rs && \
