@@ -45,6 +45,8 @@ COPY src/domains/tenant/migration src/domains/tenant/migration/
 # Build the actual application
 RUN cargo build --release --workspace && \
     strip --strip-debug target/release/user-auth-plugin && \
+    strip --strip-debug target/release/user_migration && \
+    strip --strip-debug target/release/tenant_migration && \
     ls -la target/release
 
 # ============================================================================
@@ -145,9 +147,11 @@ WORKDIR /app
 
 # Copy backend binary
 COPY --from=rust-builder /app/target/release/user-auth-plugin ./user-auth-plugin
+COPY --from=rust-builder /app/target/release/user_migration ./user_migration
+COPY --from=rust-builder /app/target/release/tenant_migration ./tenant_migration
 
 # Hardening: Make binaries immutable
-RUN chmod 0555 ./user-auth-plugin
+RUN chmod 0555 ./user-auth-plugin ./user_migration ./tenant_migration
 
 # Copy frontend build output
 COPY --from=frontend-builder /app/web/dist ./web/dist

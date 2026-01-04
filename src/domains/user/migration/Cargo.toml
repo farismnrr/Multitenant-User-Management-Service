@@ -9,7 +9,7 @@ name = "migration"
 path = "src/lib.rs"
 
 [[bin]]
-name = "migration"
+name = "user_migration"
 path = "src/main.rs"
 
 [dependencies]
