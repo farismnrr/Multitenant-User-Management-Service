@@ -37,15 +37,8 @@ if [ "$CORE_DB_TYPE" != "sqlite" ] && [ "$CORE_DB_TYPE" != "postgres" ]; then
   exit 1
 fi
 
-# Run migrations
-if [ -f "/app/migration" ]; then
-    echo "⬆️  Running migrations..."
-    echo "⬆️  Running migrations..."
-    /app/migration up
-    echo "✅ Migrations completed successfully"
-else
-    echo "⚠️  Migration binary not found, skipping migrations"
-fi
+# Note: Migrations should be run manually using 'make migrate-up'
+# Auto-migration on container start is disabled for safety and control
 
 # ============================================================================
 # Start Application
