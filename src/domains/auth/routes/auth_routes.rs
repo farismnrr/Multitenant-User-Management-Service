@@ -1,4 +1,4 @@
-use crate::domains::auth::controllers::auth_controller::{change_password, login, logout, refresh, register, verify};
+use crate::domains::auth::controllers::auth_controller::{change_password, login, logout, refresh, register, verify, generate_invitation_code};
 use crate::domains::auth::middlewares::auth_middleware;
 use crate::domains::tenant::middlewares::api_key_middleware::ApiKeyMiddleware;
 use actix_web::web;
@@ -46,6 +46,12 @@ pub fn configure_routes(
                 web::resource("/refresh")
                     .wrap(ApiKeyMiddleware)
                     .route(web::get().to(refresh))
+            )
+            // Internal routes (TenantSecret Protected)
+            .service(
+                web::resource("/internal/invitations")
+                    .wrap(crate::domains::tenant::middlewares::tenant_secret_middleware::TenantSecretMiddleware)
+                    .route(web::post().to(generate_invitation_code))
             )
             // JWT protected routes
             .service(

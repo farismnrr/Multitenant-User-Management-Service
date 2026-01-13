@@ -10,12 +10,13 @@ class AuthService {
         return response.data
     }
 
-    async register(username, email, password, role = 'user', ssoParams = {}) {
+    async register(username, email, password, role = 'user', invitation_code = null, ssoParams = {}) {
         const response = await api.post('/auth/register', {
             username,
             email,
             password,
             role,
+            invitation_code,
             ...ssoParams
         })
         return response.data

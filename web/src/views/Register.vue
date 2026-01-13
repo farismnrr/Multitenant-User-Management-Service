@@ -1,5 +1,4 @@
-<script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useQuotes } from '../composables/useQuotes'
@@ -14,6 +13,7 @@ const username = ref('')
 const email = ref('')
 const password = ref('')
 const confirmPassword = ref('')
+const invitationCode = ref('')
 const { showPassword, togglePassword } = usePasswordToggle()
 const { showPassword: showConfirmPassword, togglePassword: toggleConfirmPassword } = usePasswordToggle()
 
@@ -23,7 +23,10 @@ const { currentQuote } = useQuotes()
 // Use shared SSO composable
 useSSO()
 
-
+const requiresInvitationCode = computed(() => {
+    const role = route.query.role || 'user'
+    return role !== 'user'
+})
 
 const handleRegister = async () => {
     if (password.value !== confirmPassword.value) {
@@ -32,7 +35,7 @@ const handleRegister = async () => {
     }
     authStore.error = null
     const role = route.query.role || 'user'
-    await authStore.register(username.value, email.value, password.value, role)
+    await authStore.register(username.value, email.value, password.value, role, invitationCode.value)
 }
 </script>
 
@@ -218,6 +221,19 @@ const handleRegister = async () => {
                   y2="23"
                 /></svg>
               </button>
+            </div>
+          </div>
+
+          <div class="input-group" v-if="requiresInvitationCode">
+            <label for="invitationCode">Invitation Code</label>
+            <div class="input-wrapper">
+              <input 
+                id="invitationCode" 
+                v-model="invitationCode" 
+                type="text" 
+                placeholder="Enter 8-digit code" 
+                required
+              >
             </div>
           </div>
 

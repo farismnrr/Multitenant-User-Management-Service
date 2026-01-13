@@ -125,7 +125,7 @@ export const useAuthStore = defineStore('auth', () => {
         }
     }
 
-    const register = async (username, email, password, role) => {
+    const register = async (username, email, password, role, invitation_code) => {
         loading.value = true
         error.value = null
         try {
@@ -136,7 +136,7 @@ export const useAuthStore = defineStore('auth', () => {
                 redirect_uri: sessionStorage.getItem('sso_redirect_uri')
             }
 
-            await AuthService.register(username, email, password, role, ssoParams)
+            await AuthService.register(username, email, password, role, invitation_code, ssoParams)
             toast.success('Registration successful! Please sign in to continue.')
 
             // SSO: Preserve redirect params when going to login

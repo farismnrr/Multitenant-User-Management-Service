@@ -5,7 +5,7 @@ use std::env;
 
 #[actix_web::test]
 async fn test_tenant_secret_middleware_missing_config() {
-    env::remove_var("TENANT_SECRET_KEY");
+    env::set_var("TENANT_SECRET_KEY", "");
     
     let middleware = TenantSecretMiddleware;
     let srv = test::init_service(

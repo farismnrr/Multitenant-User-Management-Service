@@ -227,6 +227,9 @@ pub async fn run_server() -> std::io::Result<()> {
     let user_tenant_repo = Arc::new(UserTenantRepository::new(db_arc.clone(), cache.clone()));
     let tenant_repo = Arc::new(TenantRepository::new(db_arc.clone(), cache.clone()));
 
+    use crate::domains::auth::repositories::invitation_code_repository::InvitationCodeRepository;
+    let invitation_code_repo = Arc::new(InvitationCodeRepository::new(cache.clone()));
+
     // ================================================================================================
     // 🧠 USECASE SECTION
     // ================================================================================================
@@ -241,6 +244,7 @@ pub async fn run_server() -> std::io::Result<()> {
         user_tenant_repo.clone(),
         user_session_repo.clone(),
         user_activity_log_repo.clone(),
+        invitation_code_repo.clone(),
     ));
     let user_details_usecase = Arc::new(UserDetailsUseCase::new(user_details_repo.clone()));
     let tenant_usecase = Arc::new(TenantUseCase::new(tenant_repo.clone()));

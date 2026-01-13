@@ -1,25 +1,23 @@
+use std::sync::Arc;
+use chrono::Utc;
+use crate::domains::common::utils::jwt::JwtService;
+use crate::domains::common::utils::{password, request_helper};
+use crate::domains::user::validators::user_validator;
 use crate::domains::user::dtos::auth_dto::{AuthResponse, LoginRequest, RegisterRequest};
 use crate::domains::user::dtos::change_password_dto::ChangePasswordRequest;
 use crate::domains::user::dtos::user_dto::{CreateUserRequest, UserResponse};
 use crate::domains::user::dtos::user_details_dto::UserDetailsResponse;
 use crate::domains::user::entities::user::Model as User;
 use crate::domains::user::entities::user_details::Model as UserDetails;
+use crate::domains::user::entities::user_session::Model as UserSession;
 use crate::domains::common::errors::{AppError, ValidationDetail};
 use crate::domains::user::repositories::user_activity_log_repository::UserActivityLogRepositoryTrait;
 use crate::domains::user::repositories::user_repository::UserRepositoryTrait;
 use crate::domains::user::repositories::user_session_repository::UserSessionRepositoryTrait;
 use crate::domains::tenant::repositories::user_tenant_repository::UserTenantRepositoryTrait;
-use crate::domains::common::utils::{jwt::JwtService, password, request_helper};
-use crate::domains::user::validators::user_validator;
 use actix_web::HttpMessage;
-use chrono::Utc;
-use std::sync::Arc;
+use crate::domains::auth::repositories::invitation_code_repository::InvitationCodeRepositoryTrait;
 
-/// Authentication use case handling user registration, login, and session management.
-///
-/// This use case manages authentication operations including user registration,
-/// login with password verification, JWT token generation, session tracking,
-/// and comprehensive activity logging for audit trails.
 pub struct AuthUseCase {
     repository: Arc<dyn UserRepositoryTrait>,
     user_details_repository:
@@ -27,18 +25,12 @@ pub struct AuthUseCase {
     user_tenant_repository: Arc<dyn UserTenantRepositoryTrait>,
     session_repository: Arc<dyn UserSessionRepositoryTrait>,
     activity_log_repository: Arc<dyn UserActivityLogRepositoryTrait>,
+    invitation_code_repository: Arc<dyn InvitationCodeRepositoryTrait>,
     jwt_service: JwtService,
 }
 
 impl AuthUseCase {
     /// Creates a new AuthUseCase instance.
-    ///
-    /// # Arguments
-    ///
-    /// * `repository` - Arc-wrapped user repository implementation
-    /// * `user_details_repository` - Arc-wrapped user_details repository implementation
-    /// * `session_repository` - Arc-wrapped session repository implementation
-    /// * `activity_log_repository` - Arc-wrapped activity log repository implementation
     pub fn new(
         repository: Arc<dyn UserRepositoryTrait>,
         user_details_repository: Arc<
@@ -47,6 +39,7 @@ impl AuthUseCase {
         user_tenant_repository: Arc<dyn UserTenantRepositoryTrait>,
         session_repository: Arc<dyn UserSessionRepositoryTrait>,
         activity_log_repository: Arc<dyn UserActivityLogRepositoryTrait>,
+        invitation_code_repository: Arc<dyn InvitationCodeRepositoryTrait>,
     ) -> Self {
         Self {
             repository,
@@ -54,9 +47,11 @@ impl AuthUseCase {
             user_tenant_repository,
             session_repository,
             activity_log_repository,
+            invitation_code_repository,
             jwt_service: JwtService::new(),
         }
     }
+
 
     /// Registers a new user and generates authentication tokens.
     ///
@@ -105,6 +100,22 @@ impl AuthUseCase {
             self.log_activity_failure(None, "register", &err, ip_address.clone(), user_agent.clone())
                 .await;
             return Err(err);
+        }
+
+        // Validate Invitation Code for non "user" roles
+        if req.role != "user" {
+            let code_valid = if let Some(code) = &req.invitation_code {
+                self.invitation_code_repository.validate_and_delete_code(code).await?
+            } else {
+                false
+            };
+
+            if !code_valid {
+                let err = AppError::Forbidden("Invalid or missing invitation code".to_string());
+                self.log_activity_failure(None, "register", &err, ip_address.clone(), user_agent.clone())
+                    .await;
+                return Err(err);
+            }
         }
 
         // Step 1: Check if user exists (Global Check)
@@ -443,7 +454,7 @@ impl AuthUseCase {
         let claims = self
             .jwt_service
             .validate_token(refresh_token)
-            .map_err(|e| {
+            .map_err(|e: jsonwebtoken::errors::Error| {
                 if e.to_string().contains("ExpiredSignature") {
                     return AppError::Unauthorized("Token expired".to_string());
                 }
@@ -469,7 +480,7 @@ impl AuthUseCase {
         // Verify session exists
         let refresh_token_hash = request_helper::hash_token(refresh_token);
         log::debug!("Validating session for hash: [REDACTED]");
-        let session = self.session_repository
+        let session: UserSession = self.session_repository
             .find_by_refresh_token_hash(&refresh_token_hash)
             .await?
             .ok_or_else(|| {
@@ -479,7 +490,7 @@ impl AuthUseCase {
 
         // Verify user still exists in database
         log::debug!("Verifying user exists: {}", user_id);
-        let _user = self
+        let _user: User = self
             .repository
             .find_by_id(user_id)
             .await?
@@ -627,7 +638,7 @@ impl AuthUseCase {
         }
 
         // Get user from database
-        let user = self
+        let user: User = self
             .repository
             .find_by_id(user_id)
             .await?
@@ -688,7 +699,7 @@ impl AuthUseCase {
         user_id: uuid::Uuid,
     ) -> Result<UserResponse, AppError> {
         // Check if user exists in database
-        let user = self
+        let user: User = self
             .repository
             .find_by_id(user_id)
             .await?
@@ -771,6 +782,20 @@ impl AuthUseCase {
     }
 
 
+
+    pub async fn generate_invitation_code(&self) -> Result<String, AppError> {
+        // Generate a random 8-character string
+        use rand::{distributions::Alphanumeric, Rng};
+        let code: String = rand::thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(8)
+            .map(char::from)
+            .collect();
+        
+        // Save with 1 hour TTL
+        self.invitation_code_repository.save_code(code.clone(), std::time::Duration::from_secs(3600)).await?;
+        Ok(code)
+    }
 
     /// Validates an existing user for linking or checks for conflicts.
     /// Returns (User, is_restored) if valid, or AppError if conflict.

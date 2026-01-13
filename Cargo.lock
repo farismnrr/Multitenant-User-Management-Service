@@ -4462,6 +4462,7 @@ dependencies = [
  "jsonwebtoken",
  "log",
  "mockall",
+ "rand 0.8.5",
  "reqwest",
  "rocksdb",
  "sea-orm",

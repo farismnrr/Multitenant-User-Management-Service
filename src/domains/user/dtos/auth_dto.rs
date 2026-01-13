@@ -38,6 +38,7 @@ pub struct RegisterRequestJson {
     pub state: Option<String>,
     pub nonce: Option<String>,
     pub redirect_uri: Option<String>,
+    pub invitation_code: Option<String>,
 }
 
 /// Request DTO for user registration (Internal).
@@ -54,6 +55,7 @@ pub struct RegisterRequest {
     pub state: Option<String>,
     pub nonce: Option<String>,
     pub redirect_uri: Option<String>,
+    pub invitation_code: Option<String>,
 }
 
 /// Authentication response containing only access token.

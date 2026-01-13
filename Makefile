@@ -293,3 +293,9 @@ create-tenant:
 		-H "Content-Type: application/json" \
 		-H "X-Tenant-Secret-Key: $$TENANT_SECRET_KEY" \
 		-d "{\"name\": \"$$name\", \"description\": \"$$description\"}" | jq .
+
+# Generate an invitation code
+generate-invite:
+	@export $$(grep -v '^#' .env | grep -v '^$$' | xargs); \
+	curl -s -X POST $$ENDPOINT/api/auth/internal/invitations \
+		-H "X-Tenant-Secret-Key: $$TENANT_SECRET_KEY" | jq .

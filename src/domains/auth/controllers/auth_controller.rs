@@ -42,6 +42,7 @@ pub async fn register(
         state: body.state.clone(),
         nonce: body.nonce.clone(),
         redirect_uri: body.redirect_uri.clone(),
+        invitation_code: body.invitation_code.clone(),
     };
 
     let auth_response = usecase.register(register_req, &req).await?;
@@ -50,6 +51,24 @@ pub async fn register(
         "User registered successfully",
         serde_json::json!({
             "user_id": auth_response.user_id
+        }),
+    )))
+}
+
+/// Generates a new invitation code (Internal Admin only).
+///
+/// This endpoint generates a random 8-character invitation code with 1 hour TTL.
+/// It must be protected by TenantSecretMiddleware.
+pub async fn generate_invitation_code(
+    usecase: web::Data<Arc<AuthUseCase>>,
+) -> Result<impl Responder, AppError> {
+    let code = usecase.generate_invitation_code().await?;
+
+    Ok(HttpResponse::Ok().json(SuccessResponseDTO::new(
+        "Invitation code generated successfully",
+        serde_json::json!({
+            "code": code,
+            "ttl_seconds": 3600
         }),
     )))
 }
