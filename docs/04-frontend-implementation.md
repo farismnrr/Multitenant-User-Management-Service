@@ -53,6 +53,44 @@ export async function GET() {
 }
 ```
 
+### 2. User Proxy Route
+Create `src/app/api/auth/user/route.ts` to forward user requests to the backend:
+
+```typescript
+import { type NextRequest, NextResponse } from "next/server";
+
+export async function GET(req: NextRequest) {
+  try {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return NextResponse.json({ message: "No authorization header found" }, { status: 401 });
+    }
+
+    const ssoUrl = process.env.SSO_URL || "http://localhost:5500";
+    // Call /auth/verify endpoint which validates token and returns user data
+    const userEndpoint = `${ssoUrl}/auth/verify`;
+
+    const backendResponse = await fetch(userEndpoint, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: authHeader,
+        // "X-API-Key": process.env.API_KEY || "", // If required by your middleware
+      },
+    });
+
+    if (!backendResponse.ok) {
+        return NextResponse.json({ message: "Failed to fetch user" }, { status: backendResponse.status });
+    }
+
+    const data = await backendResponse.json();
+    return NextResponse.json(data, { status: 200 });
+  } catch (error) {
+    return NextResponse.json({ message: "Internal server error" }, { status: 500 });
+  }
+}
+```
+
 ### 2. Login Page
 
 Create `src/app/auth/login/page.tsx`:
@@ -170,6 +208,55 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     setAccessToken: (token) => set({ accessToken: token }),
     clearAuth: () => set({ accessToken: null }),
     isAuthenticated: () => !!get().accessToken,
+
+    // Refresh Token Logic (Cross-Origin Cookie)
+    refresh: async () => {
+        try {
+            const SSO_URL = process.env.NEXT_PUBLIC_SSO_URL || "http://localhost:5500";
+            const API_KEY = process.env.NEXT_PUBLIC_API_KEY || "";
+
+            // Call Service directly to send the HttpOnly + SameSite=None cookie
+            const response = await fetch(`${SSO_URL}/auth/refresh`, {
+                method: "GET",
+                headers: {
+                    "Accept": "application/json",
+                    "X-API-Key": API_KEY 
+                },
+                credentials: "include", // MIMIC ROW: Critical for sending cookies
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const token = data.data?.access_token || data.access_token;
+                if (token) {
+                    set({ accessToken: token });
+                }
+            } else {
+                get().clearAuth();
+            }
+        } catch (error) {
+            console.error("Refresh failed", error);
+            get().clearAuth();
+        }
+    },
+    
+    // Fetch User via Proxy
+    fetchUser: async () => {
+        const { accessToken } = get();
+        if (!accessToken) return;
+
+        try {
+            const res = await fetch("/api/auth/user", {
+                headers: { Authorization: `Bearer ${accessToken}` },
+            });
+            if (res.ok) {
+                const userData = await res.json();
+                console.log("User loaded:", userData);
+            }
+        } catch (error) {
+            console.error("Fetch user failed:", error);
+        }
+    }
 }))
 ```
 

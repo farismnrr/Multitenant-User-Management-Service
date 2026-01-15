@@ -107,15 +107,24 @@ pub async fn login(
     let (auth_response, refresh_token) = usecase.login(login_req, &req).await?;
 
     let refresh_token_expiry = usecase.get_refresh_token_expiry();
-    let cookie = Cookie::build("refresh_token", refresh_token)
+    let cookie_domain = std::env::var("COOKIE_DOMAIN").ok();
+
+    let mut cookie_builder = Cookie::build("refresh_token", refresh_token)
         .path("/")
         .http_only(true)
-        .secure(false)
-        .same_site(SameSite::Strict)
+        .secure(true)
+        .same_site(SameSite::None)
         .max_age(actix_web::cookie::time::Duration::seconds(
             refresh_token_expiry,
-        ))
-        .finish();
+        ));
+
+    if let Some(domain) = cookie_domain {
+        if !domain.is_empty() {
+             cookie_builder = cookie_builder.domain(domain);
+        }
+    }
+
+    let cookie = cookie_builder.finish();
 
     Ok(HttpResponse::Ok()
         .cookie(cookie)
@@ -142,13 +151,21 @@ pub async fn logout(
     usecase.logout(user_id, &req).await?;
 
     // Clear refresh token cookie
-    let cookie = Cookie::build("refresh_token", "")
+    let cookie_domain = std::env::var("COOKIE_DOMAIN").ok();
+    let mut cookie_builder = Cookie::build("refresh_token", "")
         .path("/")
         .http_only(true)
-        .secure(false)
-        .same_site(SameSite::Strict)
-        .max_age(actix_web::cookie::time::Duration::seconds(0))
-        .finish();
+        .secure(true)
+        .same_site(SameSite::None)
+        .max_age(actix_web::cookie::time::Duration::seconds(0));
+
+    if let Some(domain) = cookie_domain {
+        if !domain.is_empty() {
+             cookie_builder = cookie_builder.domain(domain);
+        }
+    }
+
+    let cookie = cookie_builder.finish();
 
     Ok(HttpResponse::Ok()
         .cookie(cookie)
@@ -176,13 +193,21 @@ pub async fn sso_logout(
     let _ = usecase.sso_logout(&req).await;
 
     // Clear refresh token cookie
-    let cookie = Cookie::build("refresh_token", "")
+    let cookie_domain = std::env::var("COOKIE_DOMAIN").ok();
+    let mut cookie_builder = Cookie::build("refresh_token", "")
         .path("/")
         .http_only(true)
-        .secure(false)
-        .same_site(SameSite::Strict)
-        .max_age(actix_web::cookie::time::Duration::seconds(0))
-        .finish();
+        .secure(true)
+        .same_site(SameSite::None)
+        .max_age(actix_web::cookie::time::Duration::seconds(0));
+    
+    if let Some(domain) = cookie_domain {
+        if !domain.is_empty() {
+             cookie_builder = cookie_builder.domain(domain);
+        }
+    }
+
+    let cookie = cookie_builder.finish();
 
     let redirect_url = query.redirect_uri.clone().unwrap_or_else(|| "/".to_string());
 
@@ -202,15 +227,24 @@ pub async fn refresh(
     let (new_access_token, new_refresh_token) = usecase.refresh_token_from_request(&req).await?;
 
     let refresh_token_expiry = usecase.get_refresh_token_expiry();
-    let cookie = Cookie::build("refresh_token", new_refresh_token)
+    let cookie_domain = std::env::var("COOKIE_DOMAIN").ok();
+
+    let mut cookie_builder = Cookie::build("refresh_token", new_refresh_token)
         .path("/")
         .http_only(true)
-        .secure(false) // TODO: Set to true in production
-        .same_site(SameSite::Strict)
+        .secure(true)
+        .same_site(SameSite::None)
         .max_age(actix_web::cookie::time::Duration::seconds(
             refresh_token_expiry,
-        ))
-        .finish();
+        ));
+
+    if let Some(domain) = cookie_domain {
+        if !domain.is_empty() {
+             cookie_builder = cookie_builder.domain(domain);
+        }
+    }
+
+    let cookie = cookie_builder.finish();
 
     Ok(HttpResponse::Ok()
         .cookie(cookie)

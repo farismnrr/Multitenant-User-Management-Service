@@ -141,6 +141,7 @@ See [Frontend Implementation](./04-frontend-implementation.md) for code examples
 | `TENANT_SECRET_KEY` | Secret for creating tenants via API |
 | `API_KEY` | Required header (`X-API-Key`) for auth endpoints |
 | `VITE_ALLOWED_ORIGINS` | Comma-separated list of allowed client domains |
+| `COOKIE_DOMAIN` | Optional. Set to `.example.com` to share cookies across subdomains (Prod). Empty for localhost. |
 
 ### Required Headers by Endpoint
 

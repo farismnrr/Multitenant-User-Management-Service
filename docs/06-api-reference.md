@@ -183,7 +183,8 @@ Content-Type: application/json
 }
 ```
 
-**Note:** A refresh token is also set as an HTTP-only cookie.
+**Note:** A refresh token is also set as an `HTTP-only`, `Secure`, `SameSite=None` cookie.
+If `COOKIE_DOMAIN` is configured, it will be scoped to that domain (e.g., `.example.com`), allowing access from subdomains.
 
 ### Refresh Token
 
