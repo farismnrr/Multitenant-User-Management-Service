@@ -40,7 +40,7 @@ help:
 	@echo ""
 
 # Run development server with hot reload (requires cargo-watch)
-dev:
+dev: start-web
 	@echo "🚀 Starting development server with hot reload..."
 	@echo "💡 Tip: Install cargo-watch with 'make install-watch' if not installed"
 	@cargo watch -i "*.sqlite*" -i "*.db*" -i "rocksdb_cache" -x run || (echo "❌ cargo-watch not found. Installing..." && cargo install cargo-watch && cargo watch -i "*.sqlite*" -i "*.db*" -i "rocksdb_cache" -x run)
@@ -51,7 +51,7 @@ start:
 	cargo run
 
 # Run web frontend (static build, served from Rust)
-start-web:
+start-web: 
 	@echo "🔨 Building Web Frontend..."
 	@cd web && npm install && npm run build
 	@echo "✅ Frontend built and ready to be served from Rust (port 5500)"
@@ -289,7 +289,7 @@ create-tenant:
 		exit 1; \
 	fi; \
 	echo "🚀 Creating tenant '$$name'..."; \
-	curl -s -X POST $$ENDPOINT/api/tenants \
+	curl -s -X POST $$ENDPOINT/tenants \
 		-H "Content-Type: application/json" \
 		-H "X-Tenant-Secret-Key: $$TENANT_SECRET_KEY" \
 		-d "{\"name\": \"$$name\", \"description\": \"$$description\"}" | jq .
@@ -297,5 +297,5 @@ create-tenant:
 # Generate an invitation code
 generate-invite:
 	@export $$(grep -v '^#' .env | grep -v '^$$' | xargs); \
-	curl -s -X POST $$ENDPOINT/api/auth/internal/invitations \
+	curl -s -X POST $$ENDPOINT/auth/internal/invitations \
 		-H "X-Tenant-Secret-Key: $$TENANT_SECRET_KEY" | jq .

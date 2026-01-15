@@ -1,5 +1,3 @@
-pub use sea_orm_migration::prelude::*;
-
 mod m20250108_000001_create_users_table;
 mod m20250109_000002_create_user_details_table;
 mod m20250110_000001_create_user_sessions_table;

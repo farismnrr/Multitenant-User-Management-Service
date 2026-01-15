@@ -1,5 +1,5 @@
 const axios = require('axios');
-const { BASE_URL, API_KEY } = require('../config');
+const { BASE_URL, API_KEY, TENANT_SECRET_KEY } = require('../config');
 
 describe('POST /auth/register - Register User', () => {
 
@@ -320,21 +320,64 @@ describe('POST /auth/register - Register User', () => {
 
     // 17. Duplicate registration (Same Tenant) - Role Admin
     test('Scenario 17: Duplicate registration (Same Tenant) - Role Admin', async () => {
+        // Generate Invitation Code
+        let invitationCode;
+        try {
+            const inviteResponse = await axios.post(`${BASE_URL}/auth/internal/invitations`, {}, {
+                headers: { 'X-Tenant-Secret-Key': TENANT_SECRET_KEY }
+            });
+            invitationCode = inviteResponse.data; // The API returns the code directly as string or object? Check API.
+            // Based on Makefile: curl ... | jq . -> The API likely returns JSON string or object.
+            // Let's assume it returns plain string or quoted string based on controller.
+            // Actually controller usually returns JSON. Let's inspect controller later if this fails, but assuming JSON:
+            // "CODE123"
+            if (typeof inviteResponse.data === 'string') {
+                 invitationCode = inviteResponse.data;
+            } else if (inviteResponse.data.code) {
+                 invitationCode = inviteResponse.data.code;
+            }
+        } catch (e) {
+             console.error("Failed to generate invite code for test:", e.response?.data || e.message);
+             // Fail the test if we can't get a code
+             throw e;
+        }
+
         // First register
         const user = {
             username: `dup_admin_${Date.now()}`,
             email: `dup_admin_${Date.now()}@test.com`,
             password: "Password123!",
-            role: "admin"
+            role: "admin",
+            invitation_code: invitationCode
         };
+
         // Register admin
         await axios.post(`${BASE_URL}/auth/register`, user, { headers: { 'X-API-Key': API_KEY } });
 
         // Register again same admin (Same Tenant)
         try {
-            await axios.post(`${BASE_URL}/auth/register`, user, { headers: { 'X-API-Key': API_KEY } });
+            // Re-use same invite code? No, invite code is one-time use.
+            // But here we expect 409 Conflict on EMAIL/USERNAME, which checks "user exists" BEFORE "invitation code valid"?
+            // Let's check AuthUseCase order:
+            // 1. Validator (username, email, password, role)
+            // 2. Invitation Code Validation (if role != user) -> Deletes code on success.
+            // 3. Check if user exists (Global)
+            
+            // So if we send same request again:
+            // It will fail at Step 2 "Invitation Code" because it was deleted! 
+            // So we get 403 Forbidden ("Invalid or missing invitation code"), NOT 409 Conflict.
+            
+            // To test "Duplicate Registration" (409), we need a NEW valid code, but SAME user data.
+            
+             const inviteResponse2 = await axios.post(`${BASE_URL}/auth/internal/invitations`, {}, {
+                headers: { 'X-Tenant-Secret-Key': TENANT_SECRET_KEY }
+            });
+            const invitationCode2 = typeof inviteResponse2.data === 'string' ? inviteResponse2.data : inviteResponse2.data.code;
+
+            await axios.post(`${BASE_URL}/auth/register`, { ...user, invitation_code: invitationCode2 }, { headers: { 'X-API-Key': API_KEY } });
             throw new Error('Should have failed');
         } catch (error) {
+            // Now we expect 409 because we passed validation and invite code, hitting the "User exists" check.
             expect(error.response.status).toBe(409);
             expect(error.response.data).toEqual(expect.objectContaining({
                 status: false,
