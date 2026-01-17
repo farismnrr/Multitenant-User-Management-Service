@@ -89,7 +89,7 @@ impl RocksDbCache {
                         None
                     }
                     Err(e) => {
-                        error!("Failed to deserialize cache item for key {}: {}", key, e);
+                        error!("Failed to deserialize cache item: {}", e);
                         None
                     }
                 }
@@ -99,7 +99,7 @@ impl RocksDbCache {
                 None
             }
             Err(e) => {
-                error!("RocksDB get error for key {}: {}", key, e);
+                error!("RocksDB get error: {}", e);
                 None
             }
         }
@@ -119,11 +119,11 @@ impl RocksDbCache {
         match serde_json::to_vec(&item) {
             Ok(bytes) => {
                 if let Err(e) = self.db.put(key, bytes) {
-                    error!("RocksDB put error for key {}: {}", key, e);
+                    error!("RocksDB put error: {}", e);
                 }
             }
             Err(e) => {
-                error!("Failed to serialize cache item for key {}: {}", key, e);
+                error!("Failed to serialize cache item: {}", e);
             }
         }
     }

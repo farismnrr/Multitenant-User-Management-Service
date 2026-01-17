@@ -102,7 +102,7 @@ impl UserRepositoryTrait for UserRepository {
     async fn find_by_id(&self, id: Uuid) -> Result<Option<User>, AppError> {
         let cache_key = format!("user:{}", id);
         if let Some(cached_user) = self.cache.get::<User>(&cache_key) {
-            log::info!("CACHE HIT: {}", cache_key);
+            // log::info!("CACHE HIT: {}", cache_key);
             return Ok(Some(cached_user));
         }
 
@@ -126,7 +126,7 @@ impl UserRepositoryTrait for UserRepository {
     async fn find_by_username(&self, username: &str) -> Result<Option<User>, AppError> {
         let cache_key = format!("user:username:{}", username);
         if let Some(cached_user) = self.cache.get::<User>(&cache_key) {
-            log::info!("CACHE HIT: {}", cache_key);
+            // log::info!("CACHE HIT: {}", cache_key);
             return Ok(Some(cached_user));
         }
 

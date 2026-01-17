@@ -77,10 +77,10 @@ where
 
         // Check if TENANT_SECRET_KEY is configured
         if expected_key.is_empty() {
-            debug!(
-                "[Middleware | TenantSecret] TENANT_SECRET_KEY not configured for '{}'",
-                path
-            );
+            // debug!(
+            //     "[Middleware | TenantSecret] TENANT_SECRET_KEY not configured for '{}'",
+            //     path
+            // );
             let res = HttpResponse::InternalServerError()
                 .insert_header((header::CONTENT_TYPE, "application/json"))
                 .json(ErrorResponseDTO {
@@ -95,10 +95,10 @@ where
         // Validate the secret key
         let is_valid = secret_key_value == expected_key;
         if !is_valid {
-            debug!(
-                "[Middleware | TenantSecret] Invalid tenant secret key for '{}'",
-                path
-            );
+            // debug!(
+            //     "[Middleware | TenantSecret] Invalid tenant secret key for '{}'",
+            //     path
+            // );
             let response = ErrorResponseDTO::<()> {
                 status: false,
                 message: "Unauthorized",
@@ -111,10 +111,10 @@ where
             return Box::pin(async move { Ok(req.into_response(res.map_into_right_body())) });
         }
 
-        debug!(
-            "[Middleware | TenantSecret] Authorized request to '{}'",
-            path
-        );
+        // debug!(
+        //     "[Middleware | TenantSecret] Authorized request to '{}'",
+        //     path
+        // );
         let fut = self.service.call(req);
         Box::pin(async move {
             let res = fut.await?;

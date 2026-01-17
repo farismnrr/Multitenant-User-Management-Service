@@ -554,7 +554,7 @@ impl AuthUseCase {
         }
 
         // Generate new tokens
-        log::debug!("Generating new tokens for user: {}", user_id);
+        // log::debug!("Generating new tokens for user: {}", user_id);
         let new_access_token = self
             .jwt_service
             .generate_access_token(user_id, tenant_id, role.clone())
@@ -585,7 +585,7 @@ impl AuthUseCase {
             )
             .await?;
 
-        log::debug!("Refresh token rotation successful");
+        // log::debug!("Refresh token rotation successful");
         Ok((new_access_token, new_refresh_token))
     }
 
