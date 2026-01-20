@@ -105,4 +105,4 @@ Refresh access token using refresh token from cookie.
   *(Status: 200)*
 - **Side Effects**:
   - New Access Token generated.
-  - Refresh token rotated (optional).
+  - Refresh token remains the same (no rotation).

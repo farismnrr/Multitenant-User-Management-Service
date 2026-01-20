@@ -143,66 +143,37 @@ describe("POST /auth/refresh - Refresh Token", () => {
     }
   });
 
-  // 5. Security: Token Reuse Detection
-  test("Scenario 5: Security: Token Reuse Detection", async () => {
-    // Pre-condition: Token already consumed.
-    // We use the valid `refreshCookie` ONCE in Scenario 7 (Success).
-    // Then we use it AGAIN here?
-    // Let's run Scenario 7 FIRST? No, strict order usually 1..7.
-    // But Scenario 7 is "Successful". Scenario 5 expects "Unauthorized".
-    // To test S5, we need to consume it first.
-
-    // Let's rely on Scenario 7 logic to consume it, then run S5?
-    // But Jest doesn't guarantee order unless in single file (it does run top to bottom).
-    // So I will implement S5 AFTER S7 physically?
-    // User said "strict scenarios". Ordering in file usually matches numbering.
-    // I will implement helper loop or sequence inside S5 if needed.
-    // Or I will just duplicate the consumption:
-
-    /* 
-           This test depends on S7 passing or consuming the token. 
-           But if I execute it here, I consume it for S7!
-           So S7 will fail if S5 consumes it first (and rotation is on).
-           Conflict in ordering.
-           Strategy: Create a NEW user/token specifically for S5.
-        */
+  // 5. Token can be reused multiple times (no rotation)
+  test("Scenario 5: Token can be reused multiple times", async () => {
+    // Since we disabled rotation, the same refresh token can be used multiple times
     let reuseCookie = "";
-    try {
-      // 1. Get new token
-      const timestamp = Date.now();
-      await axios.post(
-        `${BASE_URL}/auth/register`,
-        { ...testUser, username: "reuse_" + timestamp, email: "reuse_" + timestamp + "@x.com" },
-        { headers: { "X-API-Key": API_KEY } },
-      );
-      const l = await axios.post(
-        `${BASE_URL}/auth/login`,
-        { email_or_username: "reuse_" + timestamp + "@x.com", password: testUser.password },
-        { headers: { "X-API-Key": API_KEY } },
-      );
-      const reuseRawCookie = l.headers["set-cookie"][0];
-      reuseCookie = reuseRawCookie.split(";")[0];
+    const timestamp = Date.now();
+    await axios.post(
+      `${BASE_URL}/auth/register`,
+      { ...testUser, username: "reuse_" + timestamp, email: "reuse_" + timestamp + "@x.com" },
+      { headers: { "X-API-Key": API_KEY } },
+    );
+    const l = await axios.post(
+      `${BASE_URL}/auth/login`,
+      { email_or_username: "reuse_" + timestamp + "@x.com", password: testUser.password },
+      { headers: { "X-API-Key": API_KEY } },
+    );
+    const reuseRawCookie = l.headers["set-cookie"][0];
+    reuseCookie = reuseRawCookie.split(";")[0];
 
-      // 2. Consume it once (Success)
-      await axios.post(`${BASE_URL}/auth/refresh`, {}, {
-        headers: { "X-API-Key": API_KEY, Cookie: reuseCookie },
-      });
+    // First refresh - should succeed
+    const firstRefresh = await axios.post(`${BASE_URL}/auth/refresh`, {}, {
+      headers: { "X-API-Key": API_KEY, Cookie: reuseCookie },
+    });
+    expect(firstRefresh.status).toBe(200);
+    expect(firstRefresh.data.status).toBe(true);
 
-      // 3. Consume again (Reuse detection)
-      await axios.post(`${BASE_URL}/auth/refresh`, {}, {
-        headers: { "X-API-Key": API_KEY, Cookie: reuseCookie },
-      });
-
-      throw new Error("Should have failed");
-    } catch (error) {
-      expect(error.response.status).toBe(401);
-      expect(error.response.data).toEqual(
-        expect.objectContaining({
-          status: false,
-          message: "Unauthorized",
-        }),
-      );
-    }
+    // Second refresh with same token - should also succeed (no rotation)
+    const secondRefresh = await axios.post(`${BASE_URL}/auth/refresh`, {}, {
+      headers: { "X-API-Key": API_KEY, Cookie: reuseCookie },
+    });
+    expect(secondRefresh.status).toBe(200);
+    expect(secondRefresh.data.status).toBe(true);
   });
 
   // 6. Security: User State Check
