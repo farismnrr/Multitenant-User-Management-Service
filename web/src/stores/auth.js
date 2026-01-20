@@ -25,6 +25,41 @@ export const useAuthStore = defineStore('auth', () => {
     // Getters
     const isAuthenticated = computed(() => !!accessToken.value)
 
+    // Helper for SSO redirection
+    const performSSORedirect = (token) => {
+        const urlParams = new URLSearchParams(window.location.search)
+        const redirectUri = urlParams.get('redirect_uri') || sessionStorage.getItem('sso_redirect_uri')
+        const state = ssoState.value || ''
+
+        if (redirectUri) {
+            if (!isValidRedirectUri(redirectUri)) {
+                sessionStorage.removeItem('sso_tenant_id')
+                ssoState.value = null
+                ssoNonce.value = null
+                router.push({ name: 'forbidden' })
+                return true
+            }
+
+            sessionStorage.removeItem('sso_redirect_uri')
+            sessionStorage.removeItem('sso_tenant_id')
+            ssoState.value = null
+            ssoNonce.value = null
+
+            try {
+                const url = new URL(redirectUri)
+                const safeToken = encodeURIComponent(token)
+                const safeState = encodeURIComponent(state)
+                url.hash = `access_token=${safeToken}&state=${safeState}`
+                window.location.href = url.toString()
+                return true
+            } catch {
+                router.push({ name: 'forbidden' })
+                return true
+            }
+        }
+        return false
+    }
+
     // Actions
     const login = async (emailOrUsername, password) => {
         loading.value = true
@@ -44,85 +79,31 @@ export const useAuthStore = defineStore('auth', () => {
 
             const response = await AuthService.login(emailOrUsername, password, ssoParams)
 
-            // Response structure: { status, message, data: { access_token } }
             if (response?.data?.access_token) {
                 const { access_token } = response.data
                 accessToken.value = access_token
 
-                // Fetch user details immediately using the new token
+                // Fetch user details immediately
                 try {
                     const verifyResponse = await AuthService.verify(access_token)
                     if (verifyResponse?.data?.user) {
                         user.value = verifyResponse.data.user
                     }
-                } catch {
+                } catch { /* ignore */ }
 
-                    // Optional: handle error, maybe logout if verify fails?
-                }
+                if (performSSORedirect(access_token)) return
 
-                // SSO: Check for redirect params from URL query first
-                // SSO: Check for redirect params from URL query first
-                const urlParams = new URLSearchParams(window.location.search)
-                const redirectUri = urlParams.get('redirect_uri') || sessionStorage.getItem('sso_redirect_uri')
-                const state = ssoState.value || ''
-
-                if (redirectUri) {
-                    // Validate redirect_uri against whitelist using our utility
-                    // We also ensure it's a valid URL and has safe protocol
-                    if (!isValidRedirectUri(redirectUri)) {
-
-                        sessionStorage.removeItem('sso_redirect_uri')
-                        sessionStorage.removeItem('sso_tenant_id')
-                        ssoState.value = null
-                        ssoNonce.value = null
-                        router.push({ name: 'forbidden' })
-                        return
-                    }
-
-                    // Clear SSO data
-                    sessionStorage.removeItem('sso_redirect_uri')
-                    sessionStorage.removeItem('sso_tenant_id')
-                    ssoState.value = null
-                    ssoNonce.value = null
-
-                    // Redirect back to calling app with access_token in hash fragment
-                    try {
-                        // Use URL object for safe construction - helps prevent Open Redirect
-                        const url = new URL(redirectUri)
-
-                        // Construct the hash fragment safely using encodeURIComponent
-                        // This satisfies CodeQL's requirement for explicit sanitization of sinks
-                        const safeToken = encodeURIComponent(access_token)
-                        const safeState = encodeURIComponent(state)
-                        url.hash = `access_token=${safeToken}&state=${safeState}`
-
-                        // Perform the redirect using the validated URL object
-                        window.location.href = url.toString() 
-                        return
-                    } catch (e) {
-
-                        router.push({ name: 'forbidden' })
-                        return
-                    }
-                }
-
-                // No SSO redirect - show success message
                 toast.success('Login successful! You can close this window.')
             }
         } catch (err) {
-
             const { message, type } = parseError(err)
-
             if (type === ERROR_TYPES.CREDENTIAL) {
-                // Show inline error for credential issues
                 error.value = message
             } else {
-                // Show toast for network/system errors
                 toast.error(message)
                 error.value = null
             }
         } finally {
-            // Only set loading=false if we didn't redirect
             loading.value = false
         }
     }
@@ -131,18 +112,16 @@ export const useAuthStore = defineStore('auth', () => {
         loading.value = true
         error.value = null
         try {
-            // Prepare SSO params
             const ssoParams = {
                 state: ssoState.value,
                 nonce: ssoNonce.value,
                 redirect_uri: sessionStorage.getItem('sso_redirect_uri')
             }
 
-            await AuthService.register(username, email, password, role, invitation_code, ssoParams)
+            const response = await AuthService.register(username, email, password, role, invitation_code, ssoParams)
+            
+            // Registration successful! Always go to login as requested.
             toast.success('Registration successful! Please sign in to continue.')
-
-            // SSO: Preserve redirect params when going to login
-            // Note: state/nonce will be regenerated fresh on login page
             const redirectUri = sessionStorage.getItem('sso_redirect_uri')
             if (redirectUri) {
                 const tenantId = sessionStorage.getItem('sso_tenant_id') || ''
@@ -154,14 +133,10 @@ export const useAuthStore = defineStore('auth', () => {
                 router.push('/login')
             }
         } catch (err) {
-
             const { message, type } = parseError(err)
-
             if (type === ERROR_TYPES.CREDENTIAL) {
-                // Show inline error for credential issues
                 error.value = message
             } else {
-                // Show toast for network/system errors
                 toast.error(message)
                 error.value = null
             }
@@ -175,8 +150,8 @@ export const useAuthStore = defineStore('auth', () => {
             if (accessToken.value) {
                 await AuthService.logout(accessToken.value)
             }
-        } catch {
-
+        } catch (e) {
+            console.error('Logout error:', e)
         } finally {
             user.value = null
             accessToken.value = null
@@ -192,10 +167,9 @@ export const useAuthStore = defineStore('auth', () => {
             const data = await AuthService.refresh()
             if (data?.access_token) {
                 accessToken.value = data.access_token
-                // Note: user info might need to be fetched if not in refresh response
             }
         } catch {
-
+            // Silence silent refresh errors
         } finally {
             loading.value = false
             isInitialized.value = true
@@ -203,7 +177,6 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     return {
-        // State
         user,
         accessToken,
         loading,
@@ -211,9 +184,7 @@ export const useAuthStore = defineStore('auth', () => {
         isInitialized,
         ssoState,
         ssoNonce,
-        // Getters
         isAuthenticated,
-        // Actions
         login,
         register,
         logout,

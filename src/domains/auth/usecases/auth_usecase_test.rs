@@ -54,7 +54,7 @@ mod tests {
 
     // Fake UserTenantRepository
     struct FakeUserTenantRepository {
-        role_response: Mutex<Option<String>>,
+        role_response: Mutex<Vec<String>>,
         all_tenants_response: Mutex<Vec<TenantInfo>>,
         add_user_calls: Mutex<Vec<(Uuid, Uuid, String)>>,
     }
@@ -62,14 +62,14 @@ mod tests {
     impl FakeUserTenantRepository {
         fn new() -> Self {
             Self {
-                role_response: Mutex::new(None),
+                role_response: Mutex::new(vec![]),
                 all_tenants_response: Mutex::new(vec![]),
                 add_user_calls: Mutex::new(vec![]),
             }
         }
 
-        fn set_role_response(&self, role: Option<String>) {
-            *self.role_response.lock().unwrap() = role;
+        fn set_role_response(&self, roles: Vec<String>) {
+            *self.role_response.lock().unwrap() = roles;
         }
 
         fn set_all_tenants_response(&self, tenants: Vec<TenantInfo>) {
@@ -84,7 +84,7 @@ mod tests {
             Ok(())
         }
 
-        async fn get_user_role_in_tenant(&self, _: Uuid, _: Uuid) -> Result<Option<String>, AppError> {
+        async fn get_user_roles_in_tenant(&self, _: Uuid, _: Uuid) -> Result<Vec<String>, AppError> {
             Ok(self.role_response.lock().unwrap().clone())
         }
 
@@ -163,7 +163,7 @@ mod tests {
             .with(eq(email))
             .returning(move |_| Ok(Some(user_clone.clone())));
 
-        mock_tenant_repo.set_role_response(Some("user".to_string()));
+        mock_tenant_repo.set_role_response(vec!["user".to_string()]);
 
         mock_session_repo
             .expect_create_session()
@@ -341,7 +341,7 @@ mod tests {
             })
         });
 
-        mock_tenant_repo.set_role_response(None);
+        mock_tenant_repo.set_role_response(vec![]);
 
         mock_activity_repo
             .expect_log_activity()
@@ -443,7 +443,7 @@ mod tests {
             })
         });
 
-        mock_tenant_repo.set_role_response(None);
+        mock_tenant_repo.set_role_response(vec![]);
 
         mock_activity_repo
             .expect_log_activity()
@@ -553,82 +553,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn test_register_fail_conflict_role_mixing() {
-        use crate::domains::common::utils::config::Config;
-        Config::init_for_test();
 
-        let mut mock_user_repo = MockUserRepository::new();
-        let mock_details_repo = MockUserDetailsRepository::new();
-        let mock_tenant_repo = Arc::new(FakeUserTenantRepository::new());
-        let mock_session_repo = MockUserSessionRepository::new();
-        let mut mock_activity_repo = MockUserActivityLogRepository::new();
-        let mock_invite_repo = MockInvitationCodeRepository::new();
-
-        let user_id = Uuid::new_v4();
-        let tenant_id = Uuid::new_v4();
-        let email = "admin@example.com";
-        
-        // Existing user found
-        let user = User {
-            id: user_id,
-            username: "admin_user".to_string(),
-            email: email.to_string(),
-            password_hash: password::hash_password("password123").unwrap(),
-            created_at: Utc::now().into(),
-            updated_at: Utc::now().into(),
-            deleted_at: None,
-        };
-        let user_clone = user.clone();
-
-        mock_user_repo
-            .expect_find_by_email_with_deleted()
-            .returning(move |_| Ok(Some(user_clone.clone())));
-
-        // Existing role is "admin"
-        mock_tenant_repo.set_all_tenants_response(vec![
-            crate::domains::tenant::repositories::user_tenant_repository::UserTenantInfo {
-                tenant_id: Uuid::new_v4(),
-                role: "admin".to_string(),
-            }
-        ]);
-
-        // Log failure
-        mock_activity_repo
-            .expect_log_activity()
-            .returning(|_, _, _, _, _, _| {
-                Ok(UserActivityLog {
-                     id: Uuid::new_v4(), user_id: None, activity_type: "".to_string(), status: "".to_string(), 
-                     error_message: None, ip_address: None, user_agent: None, created_at: Utc::now().into()
-                })
-            });
-
-        let usecase = AuthUseCase::new(
-            Arc::new(mock_user_repo),
-            Arc::new(mock_details_repo),
-            mock_tenant_repo.clone(),
-            Arc::new(mock_session_repo),
-            Arc::new(mock_activity_repo),
-            Arc::new(mock_invite_repo),
-        );
-
-        let req = crate::domains::user::dtos::auth_dto::RegisterRequest {
-            username: "admin_user".to_string(),
-            email: email.to_string(),
-            password: "password123".to_string(),
-            tenant_id,
-            role: "user".to_string(), // Trying to register as user
-            state: None, nonce: None, redirect_uri: None, invitation_code: None,
-        };
-        let http_req = TestRequest::default().to_http_request();
-
-        let result = usecase.register(req, &http_req).await;
-        assert!(result.is_err());
-        match result.unwrap_err() {
-            AppError::Conflict(msg) => assert!(msg.contains("Cannot register as user")),
-            _ => panic!("Expected Conflict error"),
-        }
-    }
 
     #[tokio::test]
     async fn test_register_success_multitenant_user_sso() {
@@ -725,81 +650,7 @@ mod tests {
         assert_eq!(calls[0].1, new_tenant_id);
     }
 
-    #[tokio::test]
-    async fn test_register_fail_existing_account_non_user() {
-        use crate::domains::common::utils::config::Config;
-        Config::init_for_test();
 
-        let mut mock_user_repo = MockUserRepository::new();
-        let mock_details_repo = MockUserDetailsRepository::new();
-        let mock_tenant_repo = Arc::new(FakeUserTenantRepository::new());
-        let mock_session_repo = MockUserSessionRepository::new();
-        let mut mock_activity_repo = MockUserActivityLogRepository::new();
-        let mut mock_invite_repo = MockInvitationCodeRepository::new();
-        
-        let user_id = Uuid::new_v4();
-        let email = "user@example.com";
-        let code = "CODE";
-
-        // Expect invitation validation
-        mock_invite_repo
-            .expect_validate_and_delete_code()
-            .with(eq(code))
-            .times(1)
-            .returning(|_| Ok(true));
-
-        // Existing user
-        let user = User {
-            id: user_id,
-            username: "user".to_string(),
-            email: email.to_string(),
-            password_hash: "hash".to_string(),
-            created_at: Utc::now().into(),
-            updated_at: Utc::now().into(),
-            deleted_at: None,
-        };
-        let user_clone = user.clone();
-
-        mock_user_repo
-            .expect_find_by_email_with_deleted()
-            .returning(move |_| Ok(Some(user_clone.clone())));
-
-        // Log failure
-        mock_activity_repo
-            .expect_log_activity()
-            .returning(|_, _, _, _, _, _| {
-                Ok(UserActivityLog {
-                     id: Uuid::new_v4(), user_id: None, activity_type: "".to_string(), status: "".to_string(), 
-                     error_message: None, ip_address: None, user_agent: None, created_at: Utc::now().into()
-                })
-            });
-
-        let usecase = AuthUseCase::new(
-            Arc::new(mock_user_repo),
-            Arc::new(mock_details_repo),
-            mock_tenant_repo.clone(),
-            Arc::new(mock_session_repo),
-            Arc::new(mock_activity_repo),
-            Arc::new(mock_invite_repo),
-        );
-
-        let req = crate::domains::user::dtos::auth_dto::RegisterRequest {
-            username: "user".to_string(),
-            email: email.to_string(),
-            password: "password123".to_string(),
-            tenant_id: Uuid::new_v4(),
-            role: "admin".to_string(), // Trying to register as admin when account exists
-            state: None, nonce: None, redirect_uri: None, invitation_code: Some(code.to_string()),
-        };
-        let http_req = TestRequest::default().to_http_request();
-
-        let result = usecase.register(req, &http_req).await;
-        assert!(result.is_err());
-         match result.unwrap_err() {
-            AppError::Conflict(msg) => assert!(msg.contains("Email already exists")),
-            _ => panic!("Expected Conflict error"),
-        }
-    }
 
     #[tokio::test]
     async fn test_register_fail_multitenant_wrong_password() {
@@ -873,7 +724,7 @@ mod tests {
         let result = usecase.register(req, &http_req).await;
         assert!(result.is_err());
         match result.unwrap_err() {
-            AppError::Conflict(msg) => assert!(msg.contains("Email already exists")),
+            AppError::Conflict(msg) => assert_eq!(msg, "Invalid credentials for account linking"),
             _ => panic!("Expected Conflict error"),
         }
     }
@@ -912,7 +763,7 @@ mod tests {
             .returning(move |_| Ok(Some(user_clone.clone())));
 
         // ACTUAL role is "user"
-        mock_tenant_repo.set_role_response(Some("user".to_string()));
+        mock_tenant_repo.set_role_response(vec!["user".to_string()]);
 
         mock_activity_repo
             .expect_log_activity()
@@ -958,4 +809,595 @@ mod tests {
             _ => panic!("Expected NotFound error"),
         }
     }
+
+
+    #[tokio::test]
+    async fn test_register_multi_tenant_different_roles_success() {
+        use crate::domains::common::utils::config::Config;
+        Config::init_for_test();
+
+        let mut mock_user_repo = MockUserRepository::new();
+        let mock_details_repo = MockUserDetailsRepository::new();
+        let mock_tenant_repo = Arc::new(FakeUserTenantRepository::new());
+        let mut mock_session_repo = MockUserSessionRepository::new();
+        let mut mock_activity_repo = MockUserActivityLogRepository::new();
+        let mut mock_invite_repo = MockInvitationCodeRepository::new();
+
+        let user_id = Uuid::new_v4();
+        let old_tenant_id = Uuid::new_v4();
+        let new_tenant_id = Uuid::new_v4();
+        let email = "user@example.com";
+        let password = "password123";
+        let invitation_code = "ADMIN_CODE";
+
+        // Existing user has hashed password
+        let user = User {
+            id: user_id,
+            username: "user".to_string(),
+            email: email.to_string(),
+            password_hash: password::hash_password(password).unwrap(),
+            created_at: Utc::now().into(),
+            updated_at: Utc::now().into(),
+            deleted_at: None,
+        };
+        let user_clone = user.clone();
+
+        mock_user_repo
+            .expect_find_by_email_with_deleted()
+            .returning(move |_| Ok(Some(user_clone.clone())));
+
+        // Existing role in OLD tenant
+        mock_tenant_repo.set_all_tenants_response(vec![
+            crate::domains::tenant::repositories::user_tenant_repository::UserTenantInfo {
+                tenant_id: old_tenant_id,
+                role: "user".to_string(),
+            }
+        ]);
+        
+        // Not in NEW tenant yet
+        // mock_tenant_repo.get_user_role_in_tenant defaults to None if not set
+        
+        // Invitation code is valid for admin
+        mock_invite_repo
+            .expect_validate_and_delete_code()
+            .with(eq(invitation_code))
+            .returning(|_| Ok(true));
+
+        mock_session_repo
+            .expect_create_session()
+            .returning(|_, _, _, _, _| {
+                 Ok(UserSession {
+                    id: Uuid::new_v4(),
+                    user_id: Uuid::new_v4(),
+                    refresh_token_hash: "hash".to_string(),
+                    user_agent: None,
+                    ip_address: None,
+                    expires_at: Utc::now().into(),
+                    created_at: Utc::now().into(),
+                })
+            });
+
+        mock_activity_repo
+            .expect_log_activity()
+            .returning(|_, _, _, _, _, _| {
+                Ok(UserActivityLog {
+                     id: Uuid::new_v4(), user_id: None, activity_type: "".to_string(), status: "".to_string(), 
+                     error_message: None, ip_address: None, user_agent: None, created_at: Utc::now().into()
+                })
+            });
+
+        let usecase = AuthUseCase::new(
+            Arc::new(mock_user_repo),
+            Arc::new(mock_details_repo),
+            mock_tenant_repo.clone(),
+            Arc::new(mock_session_repo),
+            Arc::new(mock_activity_repo),
+            Arc::new(mock_invite_repo),
+        );
+
+        let req = crate::domains::user::dtos::auth_dto::RegisterRequest {
+            username: "user".to_string(),
+            email: email.to_string(),
+            password: password.to_string(), // CORRECT password
+            tenant_id: new_tenant_id,
+            role: "admin".to_string(), // NEW role in NEW tenant
+            state: None, nonce: None, redirect_uri: None, 
+            invitation_code: Some(invitation_code.to_string()),
+        };
+        let http_req = TestRequest::default().to_http_request();
+
+        let result = usecase.register(req, &http_req).await;
+        assert!(result.is_ok());
+        
+        // Verify user was linked to new tenant
+        let calls = mock_tenant_repo.add_user_calls.lock().unwrap();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].0, user_id);
+        assert_eq!(calls[0].1, new_tenant_id);
+        assert_eq!(calls[0].2, "admin");
+    }
+
+    #[tokio::test]
+    async fn test_register_multi_tenant_wrong_password_fails() {
+        use crate::domains::common::utils::config::Config;
+        Config::init_for_test();
+
+        let mut mock_user_repo = MockUserRepository::new();
+        let mock_details_repo = MockUserDetailsRepository::new();
+        let mock_tenant_repo = Arc::new(FakeUserTenantRepository::new());
+        let mock_session_repo = MockUserSessionRepository::new();
+        let mut mock_activity_repo = MockUserActivityLogRepository::new();
+        let mock_invite_repo = MockInvitationCodeRepository::new();
+
+        let user_id = Uuid::new_v4();
+        let email = "user@example.com";
+        let correct_password = "password123";
+
+        let user = User {
+            id: user_id,
+            username: "user".to_string(),
+            email: email.to_string(),
+            password_hash: password::hash_password(correct_password).unwrap(),
+            created_at: Utc::now().into(),
+            updated_at: Utc::now().into(),
+            deleted_at: None,
+        };
+        let user_clone = user.clone();
+
+        mock_user_repo
+            .expect_find_by_email_with_deleted()
+            .returning(move |_| Ok(Some(user_clone.clone())));
+
+        mock_activity_repo
+            .expect_log_activity()
+            .returning(|_, _, _, _, _, _| {
+                Ok(UserActivityLog {
+                     id: Uuid::new_v4(), user_id: None, activity_type: "".to_string(), status: "".to_string(), 
+                     error_message: None, ip_address: None, user_agent: None, created_at: Utc::now().into()
+                })
+            });
+
+        let usecase = AuthUseCase::new(
+            Arc::new(mock_user_repo),
+            Arc::new(mock_details_repo),
+            mock_tenant_repo.clone(),
+            Arc::new(mock_session_repo),
+            Arc::new(mock_activity_repo),
+            Arc::new(mock_invite_repo),
+        );
+
+        let req = crate::domains::user::dtos::auth_dto::RegisterRequest {
+            username: "user".to_string(),
+            email: email.to_string(),
+            password: "wrong_password".to_string(), // WRONG password
+            tenant_id: Uuid::new_v4(),
+            role: "user".to_string(),
+            state: None, nonce: None, redirect_uri: None, invitation_code: None,
+        };
+        let http_req = TestRequest::default().to_http_request();
+
+        let result = usecase.register(req, &http_req).await;
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            AppError::Conflict(msg) => assert_eq!(msg, "Invalid credentials for account linking"),
+            _ => panic!("Expected Conflict error"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_register_same_tenant_duplicate_role_fails() {
+        use crate::domains::common::utils::config::Config;
+        Config::init_for_test();
+
+        let mut mock_user_repo = MockUserRepository::new();
+        let mock_details_repo = MockUserDetailsRepository::new();
+        let mock_tenant_repo = Arc::new(FakeUserTenantRepository::new());
+        let mock_session_repo = MockUserSessionRepository::new();
+        let mut mock_activity_repo = MockUserActivityLogRepository::new();
+        let mock_invite_repo = MockInvitationCodeRepository::new();
+
+        let user_id = Uuid::new_v4();
+        let tenant_id = Uuid::new_v4();
+        let email = "user@example.com";
+        let password = "password123";
+
+        let user = User {
+            id: user_id,
+            username: "user".to_string(),
+            email: email.to_string(),
+            password_hash: password::hash_password(password).unwrap(),
+            created_at: Utc::now().into(),
+            updated_at: Utc::now().into(),
+            deleted_at: None,
+        };
+        let user_clone = user.clone();
+
+        mock_user_repo
+            .expect_find_by_email_with_deleted()
+            .returning(move |_| Ok(Some(user_clone.clone())));
+
+        // Already has role in THIS tenant
+        mock_tenant_repo.set_role_response(vec!["user".to_string()]);
+
+        mock_activity_repo
+            .expect_log_activity()
+            .returning(|_, _, _, _, _, _| {
+                Ok(UserActivityLog {
+                     id: Uuid::new_v4(), user_id: None, activity_type: "".to_string(), status: "".to_string(), 
+                     error_message: None, ip_address: None, user_agent: None, created_at: Utc::now().into()
+                })
+            });
+
+        let usecase = AuthUseCase::new(
+            Arc::new(mock_user_repo),
+            Arc::new(mock_details_repo),
+            mock_tenant_repo.clone(),
+            Arc::new(mock_session_repo),
+            Arc::new(mock_activity_repo),
+            Arc::new(mock_invite_repo),
+        );
+
+        let req = crate::domains::user::dtos::auth_dto::RegisterRequest {
+            username: "user".to_string(),
+            email: email.to_string(),
+            password: password.to_string(),
+            tenant_id,
+            role: "user".to_string(),
+            state: None, nonce: None, redirect_uri: None, invitation_code: None,
+        };
+        let http_req = TestRequest::default().to_http_request();
+
+        let result = usecase.register(req, &http_req).await;
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert_eq!(response.user_id, user_id);
+        assert!(!response.access_token.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_register_soft_deleted_user_restore() {
+        use crate::domains::common::utils::config::Config;
+        Config::init_for_test();
+
+        let mut mock_user_repo = MockUserRepository::new();
+        let mock_details_repo = MockUserDetailsRepository::new();
+        let mock_tenant_repo = Arc::new(FakeUserTenantRepository::new());
+        let mut mock_session_repo = MockUserSessionRepository::new();
+        let mut mock_activity_repo = MockUserActivityLogRepository::new();
+        let mock_invite_repo = MockInvitationCodeRepository::new();
+
+        let user_id = Uuid::new_v4();
+        let tenant_id = Uuid::new_v4();
+        let email = "deleted@example.com";
+        let password = "password123";
+
+        // Soft-deleted user
+        let user = User {
+            id: user_id,
+            username: "deleted_user".to_string(),
+            email: email.to_string(),
+            password_hash: password::hash_password(password).unwrap(),
+            created_at: Utc::now().into(),
+            updated_at: Utc::now().into(),
+            deleted_at: Some(Utc::now().into()), // <--- DELETED
+        };
+        let user_clone = user.clone();
+
+        mock_user_repo
+            .expect_find_by_email_with_deleted()
+            .returning(move |_| Ok(Some(user_clone.clone())));
+
+        // Restore mock
+        mock_user_repo
+            .expect_restore()
+            .returning(move |id, _| {
+                Ok(User {
+                    id,
+                    username: "deleted_user".to_string(),
+                    email: "deleted@example.com".to_string(),
+                    password_hash: "hash".to_string(),
+                    created_at: Utc::now().into(),
+                    updated_at: Utc::now().into(),
+                    deleted_at: None, // <--- RESTORED
+                })
+            });
+
+        mock_session_repo
+            .expect_create_session()
+            .returning(|_, _, _, _, _| {
+                 Ok(UserSession {
+                    id: Uuid::new_v4(), user_id: Uuid::new_v4(), refresh_token_hash: "hash".to_string(),
+                    user_agent: None, ip_address: None, expires_at: Utc::now().into(), created_at: Utc::now().into(),
+                })
+            });
+
+        mock_activity_repo
+            .expect_log_activity()
+            .returning(|_, _, _, _, _, _| {
+                Ok(UserActivityLog {
+                     id: Uuid::new_v4(), user_id: None, activity_type: "".to_string(), status: "".to_string(), 
+                     error_message: None, ip_address: None, user_agent: None, created_at: Utc::now().into()
+                })
+            });
+
+        let usecase = AuthUseCase::new(
+            Arc::new(mock_user_repo),
+            Arc::new(mock_details_repo),
+            mock_tenant_repo.clone(),
+            Arc::new(mock_session_repo),
+            Arc::new(mock_activity_repo),
+            Arc::new(mock_invite_repo),
+        );
+
+        let req = crate::domains::user::dtos::auth_dto::RegisterRequest {
+            username: "deleted_user".to_string(),
+            email: email.to_string(),
+            password: password.to_string(),
+            tenant_id,
+            role: "user".to_string(),
+            state: None, nonce: None, redirect_uri: None, invitation_code: None,
+        };
+        let http_req = TestRequest::default().to_http_request();
+
+        let result = usecase.register(req, &http_req).await;
+        assert!(result.is_ok());
+        
+        let calls = mock_tenant_repo.add_user_calls.lock().unwrap();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].0, user_id);
+        assert_eq!(calls[0].1, tenant_id);
+    }
+
+    #[tokio::test]
+    async fn test_register_fail_conflict_username() {
+        use crate::domains::common::utils::config::Config;
+        Config::init_for_test();
+
+        let mut mock_user_repo = MockUserRepository::new();
+        let mock_details_repo = MockUserDetailsRepository::new();
+        let mock_tenant_repo = Arc::new(FakeUserTenantRepository::new());
+        let mock_session_repo = MockUserSessionRepository::new();
+        let mut mock_activity_repo = MockUserActivityLogRepository::new();
+        let mock_invite_repo = MockInvitationCodeRepository::new();
+
+        let email = "new_email@example.com";
+        let existing_username = "existing_user";
+        let existing_email = "existing@example.com";
+
+        let existing_user = User {
+            id: Uuid::new_v4(),
+            username: existing_username.to_string(),
+            email: existing_email.to_string(),
+            password_hash: "hash".to_string(),
+            created_at: Utc::now().into(),
+            updated_at: Utc::now().into(),
+            deleted_at: None,
+        };
+        let user_clone = existing_user.clone();
+
+        mock_user_repo
+            .expect_find_by_email_with_deleted()
+            .returning(|_| Ok(None));
+
+        mock_user_repo
+            .expect_find_by_username()
+            .with(eq(existing_username))
+            .returning(move |_| Ok(Some(user_clone.clone())));
+
+        mock_activity_repo
+            .expect_log_activity()
+            .returning(|_, _, _, _, _, _| {
+                Ok(UserActivityLog {
+                     id: Uuid::new_v4(), user_id: None, activity_type: "".to_string(), status: "".to_string(), 
+                     error_message: None, ip_address: None, user_agent: None, created_at: Utc::now().into()
+                })
+            });
+
+        let usecase = AuthUseCase::new(
+            Arc::new(mock_user_repo),
+            Arc::new(mock_details_repo),
+            mock_tenant_repo.clone(),
+            Arc::new(mock_session_repo),
+            Arc::new(mock_activity_repo),
+            Arc::new(mock_invite_repo),
+        );
+
+        let req = crate::domains::user::dtos::auth_dto::RegisterRequest {
+            username: existing_username.to_string(),
+            email: email.to_string(),
+            password: "password123".to_string(),
+            tenant_id: Uuid::new_v4(),
+            role: "user".to_string(),
+            state: None, nonce: None, redirect_uri: None, invitation_code: None,
+        };
+        let http_req = TestRequest::default().to_http_request();
+
+        let result = usecase.register(req, &http_req).await;
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            AppError::Conflict(msg) => assert_eq!(msg, "Username already exists"),
+            _ => panic!("Expected Conflict error"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_register_multiple_roles_success() {
+        use crate::domains::common::utils::config::Config;
+        Config::init_for_test();
+
+        let mut mock_user_repo = MockUserRepository::new();
+        let mock_details_repo = MockUserDetailsRepository::new();
+        let mock_tenant_repo = Arc::new(FakeUserTenantRepository::new());
+        let mock_session_repo = MockUserSessionRepository::new();
+        let mut mock_activity_repo = MockUserActivityLogRepository::new();
+        let mut mock_invite_repo = MockInvitationCodeRepository::new();
+
+        let user_id = Uuid::new_v4();
+        let tenant_id = Uuid::new_v4();
+        let email = "existing@example.com";
+        let password = "password123";
+
+        let user = User {
+            id: user_id,
+            username: "user".to_string(),
+            email: email.to_string(),
+            password_hash: password::hash_password(password).unwrap(),
+            created_at: Utc::now().into(),
+            updated_at: Utc::now().into(),
+            deleted_at: None,
+        };
+        let user_clone = user.clone();
+
+        mock_user_repo
+            .expect_find_by_email_with_deleted()
+            .returning(move |_| Ok(Some(user_clone.clone())));
+
+        // User ALREADY has "user" role
+        mock_tenant_repo.set_role_response(vec!["user".to_string()]);
+
+        mock_activity_repo
+            .expect_log_activity()
+            .returning(|_, _, _, _, _, _| {
+                Ok(UserActivityLog {
+                     id: Uuid::new_v4(), user_id: None, activity_type: "".to_string(), status: "".to_string(), 
+                     error_message: None, ip_address: None, user_agent: None, created_at: Utc::now().into()
+                })
+            });
+
+        // Mock invitation code for "admin" role
+        mock_invite_repo
+            .expect_validate_and_delete_code()
+            .with(eq("valid_code"))
+            .returning(|_| Ok(true));
+
+        let usecase = AuthUseCase::new(
+            Arc::new(mock_user_repo),
+            Arc::new(mock_details_repo),
+            mock_tenant_repo.clone(),
+            Arc::new(mock_session_repo),
+            Arc::new(mock_activity_repo),
+            Arc::new(mock_invite_repo),
+        );
+
+        // Requested "admin" role
+        let req = crate::domains::user::dtos::auth_dto::RegisterRequest {
+            username: "user".to_string(),
+            email: email.to_string(),
+            password: password.to_string(),
+            tenant_id,
+            role: "admin".to_string(),
+            state: None, nonce: None, redirect_uri: None, invitation_code: Some("valid_code".to_string()),
+        };
+        let http_req = TestRequest::default().to_http_request();
+
+        let result = usecase.register(req, &http_req).await;
+        assert!(result.is_ok());
+        
+        // Assert that add_user_to_tenant was called for the NEW role
+        let calls = mock_tenant_repo.add_user_calls.lock().unwrap();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].2, "admin");
+    }
+
+    #[tokio::test]
+    async fn test_login_multiple_roles_specific_selection() {
+        use crate::domains::common::utils::config::Config;
+        Config::init_for_test();
+
+        let mut mock_user_repo = MockUserRepository::new();
+        let mock_details_repo = MockUserDetailsRepository::new();
+        let mock_tenant_repo = Arc::new(FakeUserTenantRepository::new());
+        let mut mock_session_repo = MockUserSessionRepository::new();
+        let mut mock_activity_repo = MockUserActivityLogRepository::new();
+        let mock_invite_repo = MockInvitationCodeRepository::new();
+
+        let user_id = Uuid::new_v4();
+        let tenant_id = Uuid::new_v4();
+        let email = "multi@example.com";
+        let password = "password123";
+
+        let user = User {
+            id: user_id,
+            username: "multiuser".to_string(),
+            email: email.to_string(),
+            password_hash: password::hash_password(password).unwrap(),
+            created_at: Utc::now().into(),
+            updated_at: Utc::now().into(),
+            deleted_at: None,
+        };
+        let user_clone = user.clone();
+
+        mock_user_repo
+            .expect_find_by_email_with_deleted()
+            .returning(move |_| Ok(Some(user_clone.clone())));
+
+        // User has BOTH roles
+        mock_tenant_repo.set_role_response(vec!["user".to_string(), "admin".to_string()]);
+
+        mock_session_repo
+            .expect_create_session()
+            .returning(|_, _, _, _, _| {
+                Ok(UserSession {
+                    id: Uuid::new_v4(), user_id: Uuid::new_v4(), refresh_token_hash: "hash".to_string(),
+                    user_agent: None, ip_address: None, expires_at: Utc::now().into(), created_at: Utc::now().into(),
+                })
+            });
+
+        mock_activity_repo
+            .expect_log_activity()
+            .returning(|_, _, _, _, _, _| {
+                Ok(UserActivityLog {
+                     id: Uuid::new_v4(), user_id: None, activity_type: "".to_string(), status: "".to_string(), 
+                     error_message: None, ip_address: None, user_agent: None, created_at: Utc::now().into()
+                })
+            });
+
+        let usecase = AuthUseCase::new(
+            Arc::new(mock_user_repo),
+            Arc::new(mock_details_repo),
+            mock_tenant_repo.clone(),
+            Arc::new(mock_session_repo),
+            Arc::new(mock_activity_repo),
+            Arc::new(mock_invite_repo),
+        );
+
+        // CASE 1: Request "admin" specifically
+        let req_admin = LoginRequest {
+            email_or_username: email.to_string(),
+            password: password.to_string(),
+            tenant_id,
+            role: Some("admin".to_string()),
+            redirect_uri: None, state: None, nonce: None,
+        };
+        let http_req = TestRequest::default().to_http_request();
+        let result = usecase.login(req_admin, &http_req).await;
+        assert!(result.is_ok());
+
+        // CASE 2: No specific role requested - should default to "user" if present
+        let req_default = LoginRequest {
+            email_or_username: email.to_string(),
+            password: password.to_string(),
+            tenant_id,
+            role: None,
+            redirect_uri: None, state: None, nonce: None,
+        };
+        let result = usecase.login(req_default, &http_req).await;
+        assert!(result.is_ok());
+        
+        // CASE 3: Request non-existent role - should fail with 404
+        let req_wrong = LoginRequest {
+            email_or_username: email.to_string(),
+            password: password.to_string(),
+            tenant_id,
+            role: Some("manager".to_string()),
+            redirect_uri: None, state: None, nonce: None,
+        };
+        let result = usecase.login(req_wrong, &http_req).await;
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            AppError::NotFound(msg) => assert_eq!(msg, "User not found"),
+            _ => panic!("Expected NotFound error for wrong role"),
+        }
+    }
 }
+

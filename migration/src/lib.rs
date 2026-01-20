@@ -18,6 +18,7 @@ impl MigratorTrait for Migrator {
             Box::new(tenants::M20250111CreateTenantsTable),
             Box::new(tenants::M20250111CreateUserTenantsJunction),
             Box::new(tenants::M20250116AddApiKeyToTenants),
+            Box::new(tenants::M20250118RelaxUserTenantsUniqueConstraint),
         ]
     }
 }

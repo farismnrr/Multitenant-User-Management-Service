@@ -166,7 +166,16 @@ impl AuthUseCase {
         };
 
         // Step 2: Existing User Validation
-        let (user, is_restored) = self.validate_existing_user_for_registration(
+        
+        // If the user was found by username but the email doesn't match, this is a conflict.
+        // We only allow linking if the email matches (identity anchor).
+        if existing_user.email != normalized_email {
+            let err = AppError::Conflict(conflict_reason.to_string());
+            self.log_activity_failure(None, "register", &err, ip_address, user_agent).await;
+            return Err(err);
+        }
+
+        let (user, _is_restored) = self.validate_existing_user_for_registration(
             existing_user,
             &req,
             &normalized_email,
@@ -175,24 +184,22 @@ impl AuthUseCase {
             user_agent.clone()
         ).await?;
 
-        // Step 3: Check if user is already assigned to this tenant
-        if let Some(_existing_role) = self.user_tenant_repository.get_user_role_in_tenant(user.id, req.tenant_id).await? {
-            if !is_restored {
-                // User already in tenant and not restored -> Conflict
-                let err = AppError::Conflict(conflict_reason.to_string());
-                self.log_activity_failure(Some(user.id), "register", &err, ip_address, user_agent).await;
-                return Err(err);
-            }
-            // If restored, allow reuse
+        // Step 3: Check if user is already assigned to this tenant with the REQUESTED role
+        let existing_roles = self.user_tenant_repository.get_user_roles_in_tenant(user.id, req.tenant_id).await?;
+        
+        let role = if existing_roles.contains(&req.role) {
+            // "Signup as Login": User already has THIS role in this tenant
+            req.role.clone()
         } else {
-            // Assign user to tenant with role
+            // Role addition: User is in tenant but doesn't have this role yet.
+            // Or user not in tenant at all (get_user_roles_in_tenant returned empty Vec).
             self.user_tenant_repository
                 .add_user_to_tenant(user.id, req.tenant_id, req.role.clone())
                 .await?;
-        }
+            req.role.clone()
+        };
 
         // Generate tokens with tenant context
-        let role = req.role.clone();
         let access_token = self
             .jwt_service
             .generate_access_token(user.id, req.tenant_id, role.clone())
@@ -295,25 +302,33 @@ impl AuthUseCase {
             return Err(err);
         }
 
-        // Validate tenant membership and get role
-        let role = self
+        // Validate tenant membership and get roles
+        let roles = self
             .user_tenant_repository
-            .get_user_role_in_tenant(user.id, req.tenant_id)
-            .await?
-            .ok_or_else(|| {
-                AppError::Unauthorized("User not authorized for this tenant".to_string())
-            })?;
+            .get_user_roles_in_tenant(user.id, req.tenant_id)
+            .await?;
+            
+        if roles.is_empty() {
+             return Err(AppError::Unauthorized("User not authorized for this tenant".to_string()));
+        }
 
-        // Role Validation (requested vs actual)
-        if let Some(requested_role) = &req.role {
-            if role != *requested_role {
+        // Determine which role to use for the token
+        let role = if let Some(requested_role) = &req.role {
+            if !roles.contains(requested_role) {
                 // User explicitly requested "NotFound" behavior to mimic non-existence in that role scope
                 let err = AppError::NotFound("User not found".to_string());
                 self.log_activity_failure(Some(user.id), "login_role_mismatch", &err, ip_address, user_agent)
                     .await;
                 return Err(err);
             }
-        }
+            requested_role.clone()
+        } else {
+            // No role requested, pick the first one (usually 'user' if it exists, otherwise first in list)
+            roles.iter()
+                .find(|r| *r == "user")
+                .cloned()
+                .unwrap_or_else(|| roles[0].clone())
+        };
 
         // Generate tokens with tenant context
         let access_token = self
@@ -845,7 +860,7 @@ impl AuthUseCase {
         existing_user: User,
         req: &RegisterRequest,
         normalized_email: &str,
-        conflict_reason: &str,
+        _conflict_reason: &str,
         ip_address: Option<String>,
         user_agent: Option<String>,
     ) -> Result<(User, bool), AppError> {
@@ -863,40 +878,9 @@ impl AuthUseCase {
 
         // Active User Validation
         
-        // 1. If registering as non-user (admin/etc), strictly forbidden if account exists.
-        //    (Account Uniqueness / Tenant Scope)
-        if req.role != "user" {
-            // Check if existing account has 'user' role anywhere (Scenario 19 mix check)
-            let all_tenants = self.user_tenant_repository.get_all_tenants_for_user(existing_user.id).await?;
-            for tenant_info in all_tenants {
-                if tenant_info.role == "user" {
-                    let err = AppError::Conflict("Cannot register as user - account exists with admin/non-user role".to_string());
-                    self.log_activity_failure(Some(existing_user.id), "register", &err, ip_address, user_agent).await;
-                    return Err(err);
-                }
-            }
-
-            let err = AppError::Conflict(conflict_reason.to_string());
-            log::warn!("Registration conflict: Non-user registration for existing account");
-            self.log_activity_failure(Some(existing_user.id), "register", &err, ip_address, user_agent).await;
-            return Err(err);
-        }
-
-        // 2. If registering as 'user', check if existing account has any invalid roles (non-user).
-        //    (Global SSo Constraint)
-        let all_tenants = self.user_tenant_repository.get_all_tenants_for_user(existing_user.id).await?;
-        for tenant_info in all_tenants {
-            if tenant_info.role != "user" {
-                let err = AppError::Conflict("Cannot register as user - account exists with admin/non-user role".to_string());
-                log::warn!("Registration conflict: User role request but account has admin/non-user role");
-                self.log_activity_failure(Some(existing_user.id), "register", &err, ip_address, user_agent).await;
-                return Err(err);
-            }
-        }
-
-        // 3. Verify password for linkage security
+        // Verify password for linkage security (prevent account hijacking)
         if !password::verify_password(&req.password, &existing_user.password_hash)? {
-            let err = AppError::Conflict(conflict_reason.to_string());
+            let err = AppError::Conflict("Invalid credentials for account linking".to_string());
             self.log_activity_failure(Some(existing_user.id), "register", &err, ip_address, user_agent).await;
             return Err(err);
         }

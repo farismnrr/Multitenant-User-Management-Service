@@ -225,7 +225,10 @@ const handleRegister = async () => {
             </div>
           </div>
 
-          <div class="input-group" v-if="requiresInvitationCode">
+          <div 
+            v-if="requiresInvitationCode"
+            class="input-group"
+          >
             <label for="invitationCode">Invitation Code</label>
             <div class="input-wrapper">
               <input 

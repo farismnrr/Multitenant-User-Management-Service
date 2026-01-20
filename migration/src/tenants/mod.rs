@@ -1,7 +1,9 @@
 mod m20250111_000001_create_tenants_table;
 mod m20250111_000005_create_user_tenants_junction;
 mod m20250116_000001_add_api_key_to_tenants;
+mod m20250118_000001_relax_user_tenants_unique_constraint;
 
 pub use m20250111_000001_create_tenants_table::Migration as M20250111CreateTenantsTable;
 pub use m20250111_000005_create_user_tenants_junction::Migration as M20250111CreateUserTenantsJunction;
 pub use m20250116_000001_add_api_key_to_tenants::Migration as M20250116AddApiKeyToTenants;
+pub use m20250118_000001_relax_user_tenants_unique_constraint::Migration as M20250118RelaxUserTenantsUniqueConstraint;

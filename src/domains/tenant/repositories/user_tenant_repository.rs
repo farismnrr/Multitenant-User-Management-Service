@@ -23,11 +23,11 @@ pub trait UserTenantRepositoryTrait: Send + Sync {
         tenant_id: Uuid,
         role: String,
     ) -> Result<(), AppError>;
-    async fn get_user_role_in_tenant(
+    async fn get_user_roles_in_tenant(
         &self,
         user_id: Uuid,
         tenant_id: Uuid,
-    ) -> Result<Option<String>, AppError>;
+    ) -> Result<Vec<String>, AppError>;
     async fn get_all_tenants_for_user(
         &self,
         user_id: Uuid,
@@ -72,7 +72,7 @@ impl UserTenantRepositoryTrait for UserTenantRepository {
                     if db_err.message().contains("duplicate") || db_err.message().contains("unique")
                     {
                         return Err(AppError::Conflict(
-                            "User already assigned to this tenant".to_string(),
+                            "User already assigned to this tenant with this role".to_string(),
                         ));
                     }
                     return Err(AppError::DatabaseError(db_err.to_string()));
@@ -81,37 +81,43 @@ impl UserTenantRepositoryTrait for UserTenantRepository {
             }
         }
 
+        // Invalidate cache
+        let roles_cache_key = format!("user_roles:{}:{}", user_id, tenant_id);
+        let tenants_cache_key = format!("user_all_tenants:{}", user_id);
+        let _ = self.cache.del(&roles_cache_key);
+        let _ = self.cache.del(&tenants_cache_key);
+
         Ok(())
     }
 
-    async fn get_user_role_in_tenant(
+    async fn get_user_roles_in_tenant(
         &self,
         user_id: Uuid,
         tenant_id: Uuid,
-    ) -> Result<Option<String>, AppError> {
-        let cache_key = format!("user_tenant:{}:{}", user_id, tenant_id);
-        if let Some(cached_role) = self.cache.get::<String>(&cache_key) {
-            return Ok(Some(cached_role));
+    ) -> Result<Vec<String>, AppError> {
+        let cache_key = format!("user_roles:{}:{}", user_id, tenant_id);
+        if let Some(cached_roles) = self.cache.get::<Vec<String>>(&cache_key) {
+            return Ok(cached_roles);
         }
 
-        let result = user_tenant::Entity::find()
+        let results = user_tenant::Entity::find()
             .filter(user_tenant::Column::UserId.eq(user_id))
             .filter(user_tenant::Column::TenantId.eq(tenant_id))
-            .one(&*self.db)
+            .all(&*self.db)
             .await
             .map_err(|e| AppError::DatabaseError(e.to_string()))?;
 
-        let role = result.map(|ut| ut.role);
+        let roles: Vec<String> = results.into_iter().map(|ut| ut.role).collect();
 
-        if let Some(ref r) = role {
+        if !roles.is_empty() {
             let ttl_secs = std::env::var("CACHE_TTL")
                 .unwrap_or_else(|_| "3600".to_string())
                 .parse::<u64>()
                 .unwrap_or(3600);
-            self.cache.set(&cache_key, r, Duration::from_secs(ttl_secs));
+            self.cache.set(&cache_key, &roles, Duration::from_secs(ttl_secs));
         }
 
-        Ok(role)
+        Ok(roles)
     }
 
     async fn get_all_tenants_for_user(

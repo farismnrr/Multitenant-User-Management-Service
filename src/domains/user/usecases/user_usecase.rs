@@ -63,19 +63,19 @@ impl UserUseCase {
             .find_by_user_id(user.id)
             .await?;
 
-        // Fetch role
-        let role_result = self
+        // Fetch roles
+        let roles = self
             .user_tenant_repository
-            .get_user_role_in_tenant(user.id, tenant_id)
+            .get_user_roles_in_tenant(user.id, tenant_id)
             .await?;
         log::info!(
-            "get_user: user_id={}, tenant_id={}, fetched_role={:?}",
+            "get_user: user_id={}, tenant_id={}, fetched_roles={:?}",
             user.id,
             tenant_id,
-            role_result
+            roles
         );
 
-        let role = role_result.unwrap_or_else(|| "user".to_string());
+        let role = roles.first().cloned().unwrap_or_else(|| "user".to_string());
 
         Ok(Self::user_to_response(user, user_details, role))
     }
@@ -105,8 +105,10 @@ impl UserUseCase {
                 .await?;
             let role = self
                 .user_tenant_repository
-                .get_user_role_in_tenant(user.id, tenant_id)
+                .get_user_roles_in_tenant(user.id, tenant_id)
                 .await?
+                .first()
+                .cloned()
                 .unwrap_or_else(|| "user".to_string());
             responses.push(Self::user_to_response(user, user_details, role));
         }
@@ -155,8 +157,10 @@ impl UserUseCase {
         // Fetch role
         let role = self
             .user_tenant_repository
-            .get_user_role_in_tenant(user.id, tenant_id)
+            .get_user_roles_in_tenant(user.id, tenant_id)
             .await?
+            .first()
+            .cloned()
             .unwrap_or_else(|| "user".to_string());
 
         Ok(Self::user_to_response(user, user_details, role))

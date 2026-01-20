@@ -293,7 +293,7 @@ create-tenant:
 		echo "❌ Tenant Name is required"; \
 		exit 1; \
 	fi; \
-	echo "🚀 Creating tenant '$$name'..."; \
+	>&2 echo "🚀 Creating tenant '$$name'..."; \
 	curl -s -X POST $$ENDPOINT/api/tenants \
 		-H "Content-Type: application/json" \
 		-H "X-Tenant-Secret-Key: $$TENANT_SECRET_KEY" \

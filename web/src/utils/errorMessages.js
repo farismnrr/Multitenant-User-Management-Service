@@ -45,6 +45,25 @@ export function parseError(error) {
                 type: ERROR_TYPES.CREDENTIAL
             }
         case 409:
+            // Specific backend conflict messages
+            if (apiMessage?.includes('Already registered in this tenant')) {
+                return {
+                    message: `${apiMessage}. Please sign in with your existing password.`,
+                    type: ERROR_TYPES.CREDENTIAL
+                }
+            }
+            if (apiMessage?.includes('Invalid credentials for account linking') || apiMessage?.includes('Identity anchor conflict')) {
+                return {
+                    message: 'This email is already registered. Please enter your existing password in the password fields to link this account.',
+                    type: ERROR_TYPES.CREDENTIAL
+                }
+            }
+            if (apiMessage?.includes('Email already exists') || apiMessage?.includes('Username already exists')) {
+                return {
+                    message: `${apiMessage}. If it's yours, please use your existing credentials to proceed.`,
+                    type: ERROR_TYPES.CREDENTIAL
+                }
+            }
             return {
                 message: apiMessage || 'This username or email is already taken.',
                 type: ERROR_TYPES.CREDENTIAL

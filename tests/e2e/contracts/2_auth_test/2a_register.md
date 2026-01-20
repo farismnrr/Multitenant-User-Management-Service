@@ -181,7 +181,8 @@ Register a new user account.
     "details": [
       {
         "field": "password",
-        "message": "Password too long"
+        "message": "Password too long"      // User already in tenant. Instead of Conflict, allow "Signup as Login" 
+            // since password was already verified in step 2.
       }
     ]
   }
@@ -215,17 +216,44 @@ Register a new user account.
   - User record created.
   - Password hashed.
 
-### 10. Duplicate email
+### 10. Duplicate email (Correct Password - Signup as Login)
 - **URL**: `http://localhost:5500/auth/register`
 - **Method**: `POST`
 - **Pre-conditions**:
-  - User with same email exists.
+  - User with same email exists in the same tenant.
+  - Correct password provided.
 - **Request Body**:
   ```json
   {
     "username": "<unique_username>",
     "email": "<existing_email>",
-    "password": "StrongPassword123!",
+    "password": "<CORRECT_PASSWORD>",
+    "role": "user"
+  }
+  ```
+- **Expected Response**:
+  ```json
+  {
+    "status": true,
+    "message": "User registered successfully",
+    "data": { "user_id": "<uuid>", "access_token": "..." }
+  }
+  ```
+  *(Status: 200/201)*
+- **Side Effects**: User authenticated and receives tokens.
+
+### 10a. Duplicate email (Wrong Password)
+- **URL**: `http://localhost:5500/auth/register`
+- **Method**: `POST`
+- **Pre-conditions**:
+  - User with same email exists.
+  - Wrong password provided.
+- **Request Body**:
+  ```json
+  {
+    "username": "<unique_username>",
+    "email": "<existing_email>",
+    "password": "<WRONG_PASSWORD>",
     "role": "user"
   }
   ```
@@ -233,7 +261,7 @@ Register a new user account.
   ```json
   {
     "status": false,
-    "message": "Email already exists"
+    "message": "Already registered in this tenant with role: user. Please sign in with your existing password."
   }
   ```
   *(Status: 409 Conflict)*
@@ -263,7 +291,7 @@ Register a new user account.
   *(Status: 409 Conflict)*
 - **Side Effects**: None.
 
-### 12. Edge Case: Email case sensitivity
+### 12. Edge Case: Email case sensitivity (Signup as Login)
 - **URL**: `http://localhost:5500/auth/register`
 - **Method**: `POST`
 - **Pre-conditions**: `user@email.com` exists.
@@ -272,19 +300,20 @@ Register a new user account.
   {
     "username": "<unique>",
     "email": "User@Email.Com",
-    "password": "...",
+    "password": "<CORRECT_PASSWORD>",
     "role": "user"
   }
   ```
 - **Expected Response**:
   ```json
   {
-    "status": false,
-    "message": "Email already exists"
+    "status": true,
+    "message": "User registered successfully",
+    "data": { "user_id": "<uuid>" }
   }
   ```
-  *(Status: 409)*
-- **Side Effects**: None.
+  *(Status: 201)*
+- **Side Effects**: User authenticated.
 
 ### 13. Validation: Invalid SSO State (Special Chars)
 - **URL**: `http://localhost:5500/auth/register`
@@ -406,16 +435,42 @@ Register a new user account.
 - **Side Effects**: User linked to Tenant B with 'user' role. Shared identity across tenants.
 - **Verification**: Check `user_tenants` table has 2 entries for same user_id with different tenant_ids.
 
-### 18. Admin Role Cannot Share Credentials (Conflict)
-- **Description**: Role 'admin' (or non-user) CANNOT register in new tenant if credentials already exist.
-- **Pre-conditions**: Admin exists in Tenant A.
+### 18. Multi-Tenant Role Linking with Password (Success)
+- **Description**: User with existing account can register for different role in new tenant by providing correct password.
+- **Pre-conditions**: User exists with role 'user' in Tenant A.
 - **Request Body** (Tenant B with different API key):
   ```json
   {
-    "username": "<existing_admin_username>",
-    "email": "<existing_admin_email>",
-    "password": "<ANY_PASSWORD>",
-    "role": "admin"
+    "username": "<existing_user_username>",
+    "email": "<existing_user_email>",
+    "password": "<CORRECT_PASSWORD>",
+    "role": "admin",
+    "invitation_code": "<VALID_CODE>"
+  }
+  ```
+- **Expected Response**:
+  ```json
+  {
+    "status": true,
+    "message": "User registered successfully",
+    "data": { "user_id": "<SAME_UUID>" }
+  }
+  ```
+  *(Status: 201 Created)*
+- **Side Effects**: User linked to Tenant B with 'admin' role. Same user_id, different role per tenant.
+- **Verification**: Check `user_tenants` table has 2 entries for same user_id with different tenant_ids and roles.
+
+### 19. Multi-Tenant Linking with Wrong Password (Conflict)
+- **Description**: Registration with wrong password fails to prevent account hijacking.
+- **Pre-conditions**: User exists in any tenant.
+- **Request Body** (New tenant with different API key):
+  ```json
+  {
+    "username": "<existing_username>",
+    "email": "<existing_email>",
+    "password": "<WRONG_PASSWORD>",
+    "role": "admin",
+    "invitation_code": "<VALID_CODE>"
   }
   ```
 - **Expected Response**:
@@ -426,28 +481,30 @@ Register a new user account.
   }
   ```
   *(Status: 409 Conflict)*
-- **Side Effects**: None. Admin NOT added to Tenant B.
-- **Verification**: Check `user_tenants` table still has only 1 entry for this user.
-
-### 19. Cannot Mix User and Admin Roles (Conflict)
-- **Description**: Cannot register with 'admin' role if user already has 'user' role in another tenant (or vice versa).
+- **Side Effects**: None. User NOT linked to new tenant.
+- **Verification**: User tenants remain unchanged.
+### 20. Multiple Role Registration (Success)
+- **Description**: User already in a tenant can register for a different role in the SAME tenant by providing correct password and valid invitation code (if needed).
 - **Pre-conditions**: User exists with role 'user' in Tenant A.
-- **Request Body** (Tenant B with different API key):
+- **Request Body**:
   ```json
   {
-    "username": "<existing_user_username>",
-    "email": "<existing_user_email>",
+    "username": "<existing_username>",
+    "email": "<existing_email>",
     "password": "<CORRECT_PASSWORD>",
-    "role": "admin"
+    "role": "admin",
+    "invitation_code": "<VALID_CODE>",
+    "tenant_id": "<TENANT_A_UUID>"
   }
   ```
 - **Expected Response**:
   ```json
   {
-    "status": false,
-    "message": "Cannot register as user - account exists with admin/non-user role"
+    "status": true,
+    "message": "User registered successfully",
+    "data": { "user_id": "<uuid>", "access_token": "..." }
   }
   ```
-  *(Status: 409 Conflict)*
-- **Side Effects**: None.
-- **Verification**: User remains with 'user' role only.
+  *(Status: 201 Created)*
+- **Side Effects**: User now has both 'user' and 'admin' roles in Tenant A.
+- **Verification**: Check `user_tenants` table has 2 entries for same user_id and same tenant_id but different roles.

@@ -1,5 +1,5 @@
 const axios = require("axios");
-const { BASE_URL, API_KEY } = require("../config");
+const { BASE_URL, API_KEY, TENANT_SECRET_KEY } = require("../config");
 
 describe("POST /auth/login - Login User", () => {
   const validUser = {
@@ -335,5 +335,48 @@ describe("POST /auth/login - Login User", () => {
         }),
       );
     }
+  });
+  // 15. Multi-Role Login Selection
+  test("Scenario 15: Multi-Role Login Selection", async () => {
+    const email = `multi_login_${Date.now()}@test.com`;
+    const username = `multi_login_${Date.now()}`;
+    const password = "Password123!";
+
+    // 1. Register as user
+    await axios.post(
+      `${BASE_URL}/auth/register`,
+      { username, email, password, role: "user" },
+      { headers: { "X-API-Key": API_KEY } },
+    );
+
+    // 2. Register as admin (same tenant)
+    const inviteRes = await axios.post(
+      `${BASE_URL}/auth/internal/invitations`,
+      {},
+      { headers: { "X-Tenant-Secret-Key": TENANT_SECRET_KEY } },
+    );
+    const code = typeof inviteRes.data === "string" ? inviteRes.data : inviteRes.data.code;
+    await axios.post(
+      `${BASE_URL}/auth/register`,
+      { username, email, password, role: "admin", invitation_code: code },
+      { headers: { "X-API-Key": API_KEY } },
+    );
+
+    // 3. Login specifically as admin
+    const resAdmin = await axios.post(
+      `${BASE_URL}/auth/login`,
+      { email_or_username: email, password, role: "admin" },
+      { headers: { "X-API-Key": API_KEY } },
+    );
+    expect(resAdmin.status).toBe(200);
+    expect(resAdmin.data.data).toHaveProperty("access_token");
+
+    // 4. Login without role (should default to "user")
+    const resDefault = await axios.post(
+      `${BASE_URL}/auth/login`,
+      { email_or_username: email, password },
+      { headers: { "X-API-Key": API_KEY } },
+    );
+    expect(resDefault.status).toBe(200);
   });
 });

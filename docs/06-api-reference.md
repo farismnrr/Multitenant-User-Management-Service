@@ -147,6 +147,14 @@ Content-Type: application/json
 }
 ```
 
+**Multi-Tenant & Multi-Role Behavior**:
+- **New User**: Creates new account and links to tenant.
+- **Existing User (Same Tenant)**:
+  - If requested role already exists: Performs **Signup as Login** (returns tokens).
+  - If requested role is NEW: Adds the new role to the user's profile in the tenant (requires valid invitation code for non-`user` roles).
+- **Existing User (Different Tenant)**: Links the account to the new tenant (Global SSO).
+- **Security**: Account linking and role addition always require the correct password.
+
 **Response (201 Created):**
 
 ```json
@@ -154,7 +162,8 @@ Content-Type: application/json
     "status": true,
     "message": "User registered successfully",
     "data": {
-        "user_id": "uuid-here"
+        "user_id": "uuid-here",
+        "access_token": "..." 
     }
 }
 ```
@@ -169,8 +178,15 @@ Content-Type: application/json
 {
     "email_or_username": "john@example.com",
     "password": "StrongPassword123!",
-    "role": "user" // Optional: Enforces RBAC check. Returns 404 if mismatch.
+    "role": "user" // Optional: Selects a specific role. Returns 404 if user doesn't have it.
 }
+```
+
+**Role Selection Logic**:
+- If `role` is provided: Validates that the user has that specific role in the tenant.
+- If `role` is omitted:
+  - Defaults to `user` role if available.
+  - Otherwise, picks the first assigned role for the tenant.
 ```
 
 **Response (200 OK):**

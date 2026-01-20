@@ -225,8 +225,8 @@ describe("POST /auth/register - Register User", () => {
     expect(response.data.data).toHaveProperty("user_id");
   });
 
-  // 10. Duplicate email
-  test("Scenario 10: Duplicate email", async () => {
+  // 10. Duplicate email (Correct Password - Signup as Login)
+  test("Scenario 10: Duplicate email (Correct Password - Signup as Login)", async () => {
     const user = {
       username: `dup_email_1_${Date.now()}`,
       email: `dup_${Date.now()}@test.com`,
@@ -235,21 +235,39 @@ describe("POST /auth/register - Register User", () => {
     };
     await axios.post(`${BASE_URL}/auth/register`, user, { headers: { "X-API-Key": API_KEY } });
 
+    // Register again with same email and password (Signup as Login)
+    const response = await axios.post(
+      `${BASE_URL}/auth/register`,
+      { ...user, username: `diff_name_${Date.now()}` },
+      { headers: { "X-API-Key": API_KEY } },
+    );
+
+    expect([200, 201]).toContain(response.status);
+    expect(response.data.status).toBe(true);
+    expect(response.data.message).toMatch(/User registered/i);
+    expect(response.data.data).toHaveProperty("user_id");
+  });
+
+  // 10b. Duplicate email (Wrong Password)
+  test("Scenario 10b: Duplicate email (Wrong Password)", async () => {
+    const user = {
+      username: `dup_wrong_pass_${Date.now()}`,
+      email: `dup_wrong_${Date.now()}@test.com`,
+      password: "Password123!",
+      role: "user",
+    };
+    await axios.post(`${BASE_URL}/auth/register`, user, { headers: { "X-API-Key": API_KEY } });
+
     try {
       await axios.post(
         `${BASE_URL}/auth/register`,
-        { ...user, username: `diff_name_${Date.now()}` },
+        { ...user, password: "WrongPassword!" },
         { headers: { "X-API-Key": API_KEY } },
       );
       throw new Error("Should have failed");
     } catch (error) {
       expect(error.response.status).toBe(409);
-      expect(error.response.data).toEqual(
-        expect.objectContaining({
-          status: false,
-          message: "Email already exists",
-        }),
-      );
+      expect(error.response.data.message).toContain("Invalid credentials for account linking");
     }
   });
 
@@ -281,29 +299,20 @@ describe("POST /auth/register - Register User", () => {
     }
   });
 
-  // 12. Edge Case: Email case sensitivity
-  test("Scenario 12: Edge Case: Email case sensitivity", async () => {
-    try {
-      await axios.post(
-        `${BASE_URL}/auth/register`,
-        {
-          username: "UserCaseSensitive",
-          email: uniqueEmail.toUpperCase(),
-          password: "StrongPassword123!",
-          role: "user",
-        },
-        { headers: { "X-API-Key": API_KEY } },
-      );
-      throw new Error("Should have failed");
-    } catch (error) {
-      expect(error.response.status).toBe(409);
-      expect(error.response.data).toEqual(
-        expect.objectContaining({
-          status: false,
-          message: "Email already exists",
-        }),
-      );
-    }
+  // 12. Edge Case: Email case sensitivity (Signup as Login)
+  test("Scenario 12: Edge Case: Email case sensitivity (Signup as Login)", async () => {
+    const response = await axios.post(
+      `${BASE_URL}/auth/register`,
+      {
+        username: "UserCaseSensitive",
+        email: uniqueEmail.toUpperCase(),
+        password: "StrongPassword123!",
+        role: "user",
+      },
+      { headers: { "X-API-Key": API_KEY } },
+    );
+    expect([200, 201]).toContain(response.status);
+    expect(response.data.status).toBe(true);
   });
 
   // 13. Validation: Invalid SSO State (Special Chars)
@@ -436,8 +445,47 @@ describe("POST /auth/register - Register User", () => {
     expect(resB.data.data.user_id).toBe(userIdA);
   });
 
-  // 18. Admin Role Cannot Share Credentials (Conflict)
-  test("Scenario 18: Admin Role Cannot Share Credentials (Conflict)", async () => {
+  // 18. Multi-Tenant Role Linking with Correct Password (Success)
+  test("Scenario 18: Multi-Tenant Role Linking with Correct Password", async () => {
+    const tenantBName = `TenantB_${Date.now()}`;
+    const tenantRes = await axios.post(
+      `${BASE_URL}/api/tenants`,
+      { name: tenantBName },
+      { headers: { "X-Tenant-Secret-Key": TENANT_SECRET_KEY } },
+    );
+    const API_KEY_B = tenantRes.data.data.api_key;
+
+    const email = `multi_role_${Date.now()}@test.com`;
+    const username = `multi_role_${Date.now()}`;
+    const password = "Password123!";
+
+    // Register as user in Tenant A
+    const userA = { username, email, password, role: "user" };
+    const resA = await axios.post(`${BASE_URL}/auth/register`, userA, {
+      headers: { "X-API-Key": API_KEY },
+    });
+    const userIdA = resA.data.data.user_id;
+
+    // Get invitation code for admin role
+    const inviteRes = await axios.post(
+      `${BASE_URL}/auth/internal/invitations`,
+      {},
+      { headers: { "X-Tenant-Secret-Key": TENANT_SECRET_KEY } },
+    );
+    const code = typeof inviteRes.data === "string" ? inviteRes.data : inviteRes.data.code;
+
+    // Register as admin in Tenant B with same credentials
+    const adminB = { username, email, password, role: "admin", invitation_code: code };
+    const resB = await axios.post(`${BASE_URL}/auth/register`, adminB, {
+      headers: { "X-API-Key": API_KEY_B },
+    });
+
+    expect(resB.status).toBe(201);
+    expect(resB.data.data.user_id).toBe(userIdA); // Same user_id
+  });
+
+  // 19. Multi-Tenant Linking with Wrong Password (Conflict)
+  test("Scenario 19: Multi-Tenant Linking with Wrong Password", async () => {
     const tenantCName = `TenantC_${Date.now()}`;
     const tenantRes = await axios.post(
       `${BASE_URL}/api/tenants`,
@@ -446,6 +494,18 @@ describe("POST /auth/register - Register User", () => {
     );
     const API_KEY_C = tenantRes.data.data.api_key;
 
+    const email = `wrong_pass_${Date.now()}@test.com`;
+    const username = `wrong_pass_${Date.now()}`;
+    const correctPassword = "Password123!";
+
+    // Register in Tenant A
+    await axios.post(
+      `${BASE_URL}/auth/register`,
+      { username, email, password: correctPassword, role: "user" },
+      { headers: { "X-API-Key": API_KEY } },
+    );
+
+    // Try to register in Tenant C with wrong password
     const inviteRes = await axios.post(
       `${BASE_URL}/auth/internal/invitations`,
       {},
@@ -453,46 +513,32 @@ describe("POST /auth/register - Register User", () => {
     );
     const code = typeof inviteRes.data === "string" ? inviteRes.data : inviteRes.data.code;
 
-    const email = `sso_admin_${Date.now()}@test.com`;
-    const username = `sso_admin_${Date.now()}`;
-    const adminA = { username, email, password: "Password123!", role: "admin", invitation_code: code };
-    await axios.post(`${BASE_URL}/auth/register`, adminA, { headers: { "X-API-Key": API_KEY } });
-
-    const inviteResC = await axios.post(
-      `${BASE_URL}/auth/internal/invitations`,
-      {},
-      { headers: { "X-Tenant-Secret-Key": TENANT_SECRET_KEY } },
-    );
-    const codeC = typeof inviteResC.data === "string" ? inviteResC.data : inviteResC.data.code;
-
     try {
       await axios.post(
         `${BASE_URL}/auth/register`,
-        { ...adminA, invitation_code: codeC },
+        { username, email, password: "WrongPassword!", role: "admin", invitation_code: code },
         { headers: { "X-API-Key": API_KEY_C } },
       );
       throw new Error("Should have failed");
     } catch (error) {
       expect(error.response.status).toBe(409);
-      expect(error.response.data.message).toBe("Email already exists");
+      expect(error.response.data.message).toContain("Invalid credentials");
     }
   });
+  // 20. Multiple Role Registration (Success)
+  test("Scenario 20: Multiple Role Registration (Success)", async () => {
+    const email = `multi_role_same_${Date.now()}@test.com`;
+    const username = `multi_role_same_${Date.now()}`;
+    const password = "Password123!";
 
-  // 19. Cannot Mix User and Admin Roles (Conflict)
-  test("Scenario 19: Cannot Mix User and Admin Roles (Conflict)", async () => {
-    const tenantDName = `TenantD_${Date.now()}`;
-    const tenantRes = await axios.post(
-      `${BASE_URL}/api/tenants`,
-      { name: tenantDName },
-      { headers: { "X-Tenant-Secret-Key": TENANT_SECRET_KEY } },
+    // 1. Register as user in Tenant A
+    await axios.post(
+      `${BASE_URL}/auth/register`,
+      { username, email, password, role: "user" },
+      { headers: { "X-API-Key": API_KEY } },
     );
-    const API_KEY_D = tenantRes.data.data.api_key;
 
-    const email = `mix_role_${Date.now()}@test.com`;
-    const username = `mix_role_${Date.now()}`;
-    const userA = { username, email, password: "Password123!", role: "user" };
-    await axios.post(`${BASE_URL}/auth/register`, userA, { headers: { "X-API-Key": API_KEY } });
-
+    // 2. Get invitation code for admin role (still in Tenant A context)
     const inviteRes = await axios.post(
       `${BASE_URL}/auth/internal/invitations`,
       {},
@@ -500,18 +546,15 @@ describe("POST /auth/register - Register User", () => {
     );
     const code = typeof inviteRes.data === "string" ? inviteRes.data : inviteRes.data.code;
 
-    try {
-      await axios.post(
-        `${BASE_URL}/auth/register`,
-        { username, email, password: "Password123!", role: "admin", invitation_code: code },
-        { headers: { "X-API-Key": API_KEY_D } },
-      );
-      throw new Error("Should have failed");
-    } catch (error) {
-      expect(error.response.status).toBe(409);
-      expect(error.response.data.message).toBe(
-        "Cannot register as user - account exists with admin/non-user role",
-      );
-    }
+    // 3. Register as admin in SAME Tenant A
+    const response = await axios.post(
+      `${BASE_URL}/auth/register`,
+      { username, email, password, role: "admin", invitation_code: code },
+      { headers: { "X-API-Key": API_KEY } },
+    );
+
+    expect([200, 201]).toContain(response.status);
+    expect(response.data.status).toBe(true);
+    expect(response.data.data).toHaveProperty("user_id");
   });
 });

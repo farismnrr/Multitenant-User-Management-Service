@@ -49,7 +49,7 @@ mod tests {
         #[async_trait]
         impl UserTenantRepositoryTrait for UserTenantRepository {
              async fn add_user_to_tenant(&self, user_id: Uuid, tenant_id: Uuid, role: String) -> Result<(), AppError>;
-             async fn get_user_role_in_tenant(&self, user_id: Uuid, tenant_id: Uuid) -> Result<Option<String>, AppError>;
+             async fn get_user_roles_in_tenant(&self, user_id: Uuid, tenant_id: Uuid) -> Result<Vec<String>, AppError>;
              async fn get_all_tenants_for_user(&self, user_id: Uuid) -> Result<Vec<crate::domains::tenant::repositories::user_tenant_repository::UserTenantInfo>, AppError>;
         }
     }
@@ -88,11 +88,11 @@ mod tests {
             .with(eq(user_id))
             .returning(|_| Ok(None));
 
-        // Expect get_user_role_in_tenant to be called
+        // Expect get_user_roles_in_tenant to be called
         mock_tenant_repo
-            .expect_get_user_role_in_tenant()
+            .expect_get_user_roles_in_tenant()
             .with(eq(user_id), eq(tenant_id))
-            .returning(|_, _| Ok(Some("admin".to_string())));
+            .returning(|_, _| Ok(vec!["admin".to_string()]));
 
         let usecase = UserUseCase::new(
             Arc::new(mock_user_repo),

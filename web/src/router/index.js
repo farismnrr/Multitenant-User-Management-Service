@@ -31,7 +31,7 @@ const router = createRouter({
 })
 
 // SSO: Store redirect params in sessionStorage when navigating to login/register
-router.beforeEach(async (to, from, next) => {
+router.beforeEach(async (to, _from, next) => {
     const authStore = useAuthStore()
 
     // Parse SSO params from URL for login/register pages
@@ -64,13 +64,31 @@ router.beforeEach(async (to, from, next) => {
 
     // Only login and register routes exist, both are guest-only
     if (to.meta.guestOnly && authStore.isAuthenticated) {
-        // User is authenticated but trying to access guest-only page
-        // Redirect back to calling app if SSO, otherwise stay
         const redirectUri = sessionStorage.getItem('sso_redirect_uri')
         if (redirectUri) {
+            // Helper to extract role from JWT
+            const getRoleFromToken = (token) => {
+                try {
+                    const payload = JSON.parse(atob(token.split('.')[1]))
+                    return payload.role
+                } catch {
+                    return null
+                }
+            }
+
+            const requestedRole = sessionStorage.getItem('sso_role')
+            const currentRole = getRoleFromToken(authStore.accessToken)
+
+            // If a specific role is requested and it doesn't match the current session's role,
+            // don't auto-redirect. This allows the user to re-authenticate with the correct role.
+            if (requestedRole && requestedRole !== currentRole) {
+                return next()
+            }
+
             const state = authStore.ssoState || ''
             sessionStorage.removeItem('sso_redirect_uri')
             sessionStorage.removeItem('sso_tenant_id')
+            sessionStorage.removeItem('sso_role') // Also clear role!
             authStore.ssoState = null
             authStore.ssoNonce = null
 
@@ -81,8 +99,8 @@ router.beforeEach(async (to, from, next) => {
                 url.hash = `access_token=${safeToken}&state=${safeState}`
                 window.location.href = url.toString()
                 return
-            } catch (e) {
-
+            } catch {
+                // Silently handle redirection errors
                 next({ name: 'forbidden' })
             }
         }

@@ -558,6 +558,27 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
 }
 ```
 
+## Multi-Tenant Registration
+
+### Scenario: Existing User Linking to New Tenant
+
+When a user tries to register with an email that already exists, they can link their existing account to the new tenant by providing their password.
+
+1. **Frontend receives 409 Conflict** (if password entered is wrong or account already exists but needs verification).
+2. **Frontend should display**: "This email is already registered. Please enter your password to link this account to [Tenant Name]."
+3. **User enters correct password**.
+4. **Backend verifies password and links account**.
+
+### Error Handling for Registration
+
+| Error Code | Message | Action |
+|------------|---------|--------|
+| 409 | "Invalid credentials for account linking" | User provided wrong password while trying to link existing account to a new tenant/role. |
+| 409 | "Already registered in this tenant with role: {role}" | User is already a member of this tenant. Redirect to login. |
+| 409 | "Username already exists" | Username taken by another account. |
+| 403 | "Invalid or missing invitation code" | Request a valid invitation code (required for admin roles). |
+| 400 | "Missing required fields" | Ensure all fields (username, email, password, role) are sent. |
+
 ## Next Steps
 
 → [Token Handling](./05-token-handling.md) - Managing and using access tokens

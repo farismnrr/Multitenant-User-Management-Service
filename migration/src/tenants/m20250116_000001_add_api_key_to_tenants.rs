@@ -11,12 +11,22 @@ impl MigrationTrait for Migration {
                 Table::alter()
                     .table(Tenants::Table)
                     .add_column(
-                        ColumnDef::new(Tenants::ApiKey)
+                ColumnDef::new(Tenants::ApiKey)
                             .string()
                             .string_len(255)
-                            .unique_key()
                             .null(),
                     )
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_tenants_api_key_unique")
+                    .table(Tenants::Table)
+                    .col(Tenants::ApiKey)
+                    .unique()
                     .to_owned(),
             )
             .await?;

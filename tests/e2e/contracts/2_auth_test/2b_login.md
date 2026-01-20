@@ -293,7 +293,7 @@ Authenticate user and receive access token.
 - **URL**: `http://localhost:5500/auth/login`
 - **Method**: `POST`
 - **Pre-conditions**:
-  - User exists with role "user" (or any role distinct from requested role).
+  - User exists with one or more roles (e.g., "user"), but NOT the requested role.
 - **Request Body**:
   ```json
   {

@@ -9,7 +9,7 @@ This document details the URL parameters used in SSO redirects.
 When initiating SSO login, your client application redirects users to:
 
 ```
-{SSO_URL}/login?tenant_id={TENANT_ID}&redirect_uri={CALLBACK_URL}
+{SSO_URL}/login?tenant_id={TENANT_ID}&redirect_uri={CALLBACK_URL}&role={OPTIONAL_ROLE}
 ```
 
 > **Note**: You only need to provide `tenant_id` and `redirect_uri`. The SSO login page automatically generates and appends `state`, `nonce`, `response_type`, and `scope` parameters for security.
@@ -20,10 +20,9 @@ When initiating SSO login, your client application redirects users to:
 
 ### Client-Provided (Required)
 
-| Parameter | Required | Description |
-|-----------|----------|-------------|
 | `tenant_id` | ✅ Yes | UUID identifying your application |
 | `redirect_uri` | ✅ Yes | URL-encoded callback URL in your app |
+| `role` | ❌ No | Explicitly select a role (e.g., `admin`). Defaults to `user` if available, or first assigned role. |
 
 ---
 
@@ -127,7 +126,7 @@ https://app.example.com/auth/callback#access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6I
 For user registration, redirect to `/register` with only `tenant_id` and `redirect_uri`:
 
 ```
-{SSO_URL}/register?tenant_id={TENANT_ID}&redirect_uri={CALLBACK_URL}
+{SSO_URL}/register?tenant_id={TENANT_ID}&redirect_uri={CALLBACK_URL}&role={ROLE}
 ```
 
 The SSO registration page will add `state` and `nonce` automatically.
