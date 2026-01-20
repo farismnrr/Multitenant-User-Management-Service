@@ -17,6 +17,7 @@ pub trait UserSessionRepositoryTrait: Send + Sync {
     /// Creates a new session in the database.
     async fn create_session(
         &self,
+        id: Option<Uuid>,
         user_id: Uuid,
         refresh_token_hash: String,
         user_agent: Option<String>,
@@ -57,6 +58,7 @@ impl UserSessionRepository {
 impl UserSessionRepositoryTrait for UserSessionRepository {
     async fn create_session(
         &self,
+        id: Option<Uuid>,
         user_id: Uuid,
         refresh_token_hash: String,
         user_agent: Option<String>,
@@ -64,7 +66,7 @@ impl UserSessionRepositoryTrait for UserSessionRepository {
         expires_at: DateTime<Utc>,
     ) -> Result<UserSession, AppError> {
         let session = user_session::ActiveModel {
-            id: Set(Uuid::new_v4()), // Generate UUID in repository
+            id: Set(id.unwrap_or_else(Uuid::new_v4)), // Use provided or generate new
             user_id: Set(user_id),
             refresh_token_hash: Set(refresh_token_hash),
             user_agent: Set(user_agent),

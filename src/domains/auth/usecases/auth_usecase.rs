@@ -157,7 +157,7 @@ impl AuthUseCase {
              let access_token = self.jwt_service.generate_access_token(user.id, req.tenant_id, role.clone())
                  .map_err(|e| AppError::InternalError(format!("Failed to generate access token: {}", e)))?;
              
-             let _refresh_token = self.jwt_service.generate_refresh_token(user.id, req.tenant_id, role)
+             let _refresh_token = self.jwt_service.generate_refresh_token(user.id, req.tenant_id, role, None)
                  .map_err(|e| AppError::InternalError(format!("Failed to generate refresh token: {}", e)))?;
                  
              self.log_activity_success(Some(user.id), "register", ip_address, user_agent).await;
@@ -209,7 +209,7 @@ impl AuthUseCase {
 
         let _refresh_token = self
             .jwt_service
-            .generate_refresh_token(user.id, req.tenant_id, role)
+            .generate_refresh_token(user.id, req.tenant_id, role, None)
             .map_err(|e| {
                 AppError::InternalError(format!("Failed to generate refresh token: {}", e))
             })?;
@@ -338,9 +338,12 @@ impl AuthUseCase {
                 AppError::InternalError(format!("Failed to generate access token: {}", e))
             })?;
 
+        // Generate a shared UUID for JTI and DB Session ID
+        let session_id = uuid::Uuid::new_v4();
+
         let refresh_token = self
             .jwt_service
-            .generate_refresh_token(user.id, req.tenant_id, role)
+            .generate_refresh_token(user.id, req.tenant_id, role, Some(session_id.to_string()))
             .map_err(|e| {
                 AppError::InternalError(format!("Failed to generate refresh token: {}", e))
             })?;
@@ -352,6 +355,7 @@ impl AuthUseCase {
 
         self.session_repository
             .create_session(
+                Some(session_id),
                 user.id,
                 refresh_token_hash,
                 user_agent.clone(),
@@ -577,9 +581,12 @@ impl AuthUseCase {
                 AppError::InternalError(format!("Failed to generate access token: {}", e))
             })?;
 
+        // Generate a shared UUID for JTI and DB Session ID (Rotation)
+        let new_session_id = uuid::Uuid::new_v4();
+
         let new_refresh_token = self
             .jwt_service
-            .generate_refresh_token(user_id, tenant_id, role)
+            .generate_refresh_token(user_id, tenant_id, role, Some(new_session_id.to_string()))
             .map_err(|e| {
                 AppError::InternalError(format!("Failed to generate refresh token: {}", e))
             })?;
@@ -592,6 +599,7 @@ impl AuthUseCase {
 
         self.session_repository
             .create_session(
+                Some(new_session_id),
                 user_id,
                 new_refresh_token_hash,
                 session.user_agent, // Inherit from old session? Or use None since we don't have req here?

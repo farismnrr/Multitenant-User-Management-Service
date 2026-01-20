@@ -122,6 +122,7 @@ impl JwtService {
         user_id: Uuid,
         tenant_id: Uuid,
         role: String,
+        jti: Option<String>,
     ) -> Result<String, jsonwebtoken::errors::Error> {
         let now = Utc::now();
         let exp = now + Duration::seconds(self.refresh_token_expiry);
@@ -133,7 +134,7 @@ impl JwtService {
             exp: exp.timestamp(),
             iat: now.timestamp(),
             token_type: "refresh".to_string(),
-            jti: Some(Uuid::new_v4().to_string()), // Unique ID for each refresh token
+            jti: jti.or_else(|| Some(Uuid::new_v4().to_string())), // Use provided JTI or generate new
         };
 
         encode(
