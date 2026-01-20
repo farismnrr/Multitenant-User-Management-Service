@@ -157,12 +157,14 @@ impl AuthUseCase {
              let access_token = self.jwt_service.generate_access_token(user.id, req.tenant_id, role.clone())
                  .map_err(|e| AppError::InternalError(format!("Failed to generate access token: {}", e)))?;
              
-             let _refresh_token = self.jwt_service.generate_refresh_token(user.id, req.tenant_id, role, None)
-                 .map_err(|e| AppError::InternalError(format!("Failed to generate refresh token: {}", e)))?;
-                 
+             let expires_in = self.jwt_service.get_access_token_expiry();
              self.log_activity_success(Some(user.id), "register", ip_address, user_agent).await;
              
-             return Ok(AuthResponse { user_id: user.id, access_token });
+             return Ok(AuthResponse { 
+                 user_id: user.id, 
+                 access_token,
+                 expires_in,
+             });
         };
 
         // Step 2: Existing User Validation
@@ -214,6 +216,7 @@ impl AuthUseCase {
                 AppError::InternalError(format!("Failed to generate refresh token: {}", e))
             })?;
 
+        let expires_in = self.jwt_service.get_access_token_expiry();
         // Log successful registration
         self.log_activity_success(Some(user.id), "register", ip_address, user_agent)
             .await;
@@ -221,6 +224,7 @@ impl AuthUseCase {
         Ok(AuthResponse {
             user_id: user.id,
             access_token,
+            expires_in,
         })
     }
 
@@ -364,6 +368,7 @@ impl AuthUseCase {
             )
             .await?;
 
+        let expires_in = self.jwt_service.get_access_token_expiry();
         // Log successful login
         self.log_activity_success(Some(user.id), "login", ip_address, user_agent)
             .await;
@@ -372,6 +377,7 @@ impl AuthUseCase {
             AuthResponse {
                 user_id: user.id,
                 access_token,
+                expires_in,
             },
             refresh_token,
         ))
@@ -516,7 +522,7 @@ impl AuthUseCase {
     ///
     /// - `AppError::Unauthorized` if token is invalid, expired, or not a refresh token
     /// - `AppError::InternalError` if new token generation fails
-    pub async fn refresh_token(&self, refresh_token: &str) -> Result<(String, String), AppError> {
+    pub async fn refresh_token(&self, refresh_token: &str) -> Result<(String, String, i64), AppError> {
         // Validate the refresh token
         let claims = self.jwt_service.validate_token(refresh_token).map_err(
             |e: jsonwebtoken::errors::Error| {
@@ -608,8 +614,9 @@ impl AuthUseCase {
             )
             .await?;
 
+        let expires_in = self.jwt_service.get_access_token_expiry();
         // log::debug!("Refresh token rotation successful");
-        Ok((new_access_token, new_refresh_token))
+        Ok((new_access_token, new_refresh_token, expires_in))
     }
 
     /// Extracts refresh token from request cookie and generates new tokens.
@@ -632,7 +639,7 @@ impl AuthUseCase {
     pub async fn refresh_token_from_request(
         &self,
         req: &actix_web::HttpRequest,
-    ) -> Result<(String, String), AppError> {
+    ) -> Result<(String, String, i64), AppError> {
         // Extract refresh token from cookie
         let refresh_token = req
             .cookie("refresh_token")

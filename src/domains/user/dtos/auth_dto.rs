@@ -69,6 +69,7 @@ pub struct RegisterRequest {
 pub struct AuthResponse {
     pub user_id: uuid::Uuid,
     pub access_token: String,
+    pub expires_in: i64,
 }
 
 /// Query parameters for SSO logout endpoint.

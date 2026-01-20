@@ -182,4 +182,9 @@ impl JwtService {
     pub fn get_refresh_token_expiry(&self) -> i64 {
         self.refresh_token_expiry
     }
+
+    /// Gets the access token expiry duration in seconds.
+    pub fn get_access_token_expiry(&self) -> i64 {
+        self.access_token_expiry
+    }
 }

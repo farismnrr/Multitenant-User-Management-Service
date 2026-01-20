@@ -137,7 +137,8 @@ pub async fn login(
         .json(SuccessResponseDTO::new(
             "Login successful",
             serde_json::json!({
-                "access_token": auth_response.access_token
+                "access_token": auth_response.access_token,
+                "expires_in": auth_response.expires_in
             }),
         )))
 }
@@ -231,7 +232,7 @@ pub async fn refresh(
     usecase: web::Data<Arc<AuthUseCase>>,
     req: actix_web::HttpRequest,
 ) -> Result<impl Responder, AppError> {
-    let (new_access_token, new_refresh_token) = usecase.refresh_token_from_request(&req).await?;
+    let (new_access_token, new_refresh_token, expires_in) = usecase.refresh_token_from_request(&req).await?;
 
     let refresh_token_expiry = usecase.get_refresh_token_expiry();
     let cookie_domain = std::env::var("COOKIE_DOMAIN").ok();
@@ -258,7 +259,8 @@ pub async fn refresh(
         .json(SuccessResponseDTO::new(
             "Token refreshed successfully",
             serde_json::json!({
-                "access_token": new_access_token
+                "access_token": new_access_token,
+                "expires_in": expires_in
             }),
         )))
 }
