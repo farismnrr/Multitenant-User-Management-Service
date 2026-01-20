@@ -119,7 +119,7 @@ describe("DELETE /auth/logout - Logout", () => {
   test("Scenario 5: Security: Logout invalidates refresh token", async () => {
     // Try refresh with old cookie
     try {
-      await axios.get(`${BASE_URL}/auth/refresh`, {
+      await axios.post(`${BASE_URL}/auth/refresh`, {}, {
         headers: {
           "X-API-Key": API_KEY,
           Cookie: refreshCookie, // Old cookie

@@ -260,10 +260,10 @@ describe("PUT /auth/reset - Change Password", () => {
     }
   });
 
-  // 9. Security: Revocation check (Method: GET as per contract)
+  // 9. Security: Revocation check
   test("Scenario 9: Security: Revocation check", async () => {
     try {
-      await axios.get(`${BASE_URL}/auth/refresh`, {
+      await axios.post(`${BASE_URL}/auth/refresh`, {}, {
         headers: {
           "X-API-Key": API_KEY,
           Cookie: oldRefreshTokenCookie,

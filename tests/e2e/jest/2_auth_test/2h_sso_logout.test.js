@@ -74,7 +74,7 @@ describe("GET /auth/sso/logout - SSO Logout", () => {
   // 2. Security: Verify Token Invalidated
   test("Scenario 2: Verify Refresh Token is Invalidated", async () => {
     try {
-      await axios.get(`${BASE_URL}/auth/refresh`, {
+      await axios.post(`${BASE_URL}/auth/refresh`, {}, {
         headers: {
           "X-API-Key": API_KEY,
           Cookie: refreshCookie,
