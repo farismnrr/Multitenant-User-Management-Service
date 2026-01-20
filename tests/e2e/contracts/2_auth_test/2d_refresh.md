@@ -1,4 +1,4 @@
-# ENDPOINT: GET /auth/refresh
+# ENDPOINT: POST /auth/refresh
 
 ## Description
 Refresh access token using refresh token from cookie.
@@ -7,7 +7,7 @@ Refresh access token using refresh token from cookie.
 
 ### 1. Refresh without token cookie
 - **URL**: `http://localhost:5500/auth/refresh`
-- **Method**: `GET`
+- **Method**: `POST`
 - **Pre-conditions**: No cookie in request.
 - **Request Body**: None.
 - **Expected Response**:
@@ -22,7 +22,7 @@ Refresh access token using refresh token from cookie.
 
 ### 2. Refresh with invalid token
 - **URL**: `http://localhost:5500/auth/refresh`
-- **Method**: `GET`
+- **Method**: `POST`
 - **Pre-conditions**: Cookie contains invalid token.
 - **Request Body**: None.
 - **Expected Response**:
@@ -37,7 +37,7 @@ Refresh access token using refresh token from cookie.
 
 ### 3. Refresh with expired token
 - **URL**: `http://localhost:5500/auth/refresh`
-- **Method**: `GET`
+- **Method**: `POST`
 - **Pre-conditions**: Token expired.
 - **Request Body**: None.
 - **Expected Response**:
@@ -52,7 +52,7 @@ Refresh access token using refresh token from cookie.
 
 ### 4. Edge Case: Refresh token for different Tenant
 - **URL**: `http://localhost:5500/auth/refresh`
-- **Method**: `GET`
+- **Method**: `POST`
 - **Pre-conditions**: Token issued for Tenant A, used on Tenant B.
 - **Request Body**: None.
 - **Expected Response**: Status 401 Unauthorized.
@@ -60,7 +60,7 @@ Refresh access token using refresh token from cookie.
 
 ### 5. Security: Token Reuse Detection
 - **URL**: `http://localhost:5500/auth/refresh`
-- **Method**: `GET`
+- **Method**: `POST`
 - **Pre-conditions**: Token already consumed.
 - **Request Body**: None.
 - **Expected Response**:
@@ -75,7 +75,7 @@ Refresh access token using refresh token from cookie.
 
 ### 6. Security: User State Check
 - **URL**: `http://localhost:5500/auth/refresh`
-- **Method**: `GET`
+- **Method**: `POST`
 - **Pre-conditions**: User deleted/banned.
 - **Request Body**: None.
 - **Expected Response**:
@@ -90,7 +90,7 @@ Refresh access token using refresh token from cookie.
 
 ### 7. Successful token refresh
 - **URL**: `http://localhost:5500/auth/refresh`
-- **Method**: `GET`
+- **Method**: `POST`
 - **Pre-conditions**:
   - Valid `refresh_token` in cookie.
 - **Request Body**: None.
