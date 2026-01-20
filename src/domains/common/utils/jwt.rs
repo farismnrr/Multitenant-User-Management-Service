@@ -14,7 +14,7 @@ use uuid::Uuid;
 /// * `iat` - Issued at (Unix timestamp)
 /// * `token_type` - Token type ("access" or "refresh")
 /// * `jti` - JWT ID (optional, for refresh tokens to ensure uniqueness)
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
     pub sub: String,
     pub tenant_id: String,

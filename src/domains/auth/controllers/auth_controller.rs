@@ -12,6 +12,7 @@ use actix_web::{
     cookie::{Cookie, SameSite},
     web, HttpMessage, HttpResponse, Responder,
 };
+use crate::domains::common::utils::jwt::Claims;
 use std::sync::Arc;
 
 /// Register a new user
@@ -253,7 +254,15 @@ pub async fn verify(
     req: actix_web::HttpRequest,
 ) -> Result<impl Responder, AppError> {
     let user_id = AuthUseCase::extract_user_id_from_request(&req)?;
-    let user_response = usecase.verify_user_exists(user_id).await?;
+
+    // Extract claims from request extensions to get context (tenant_id)
+    let extensions = req.extensions();
+    let claims = extensions
+        .get::<Claims>()
+        .ok_or_else(|| AppError::Unauthorized("Unauthorized".to_string()))?;
+    let tenant_id = claims.tenant_id.clone();
+
+    let user_response = usecase.verify_user_exists(user_id, tenant_id).await?;
 
     Ok(HttpResponse::Ok().json(SuccessResponseDTO::new("Token is valid", user_response)))
 }

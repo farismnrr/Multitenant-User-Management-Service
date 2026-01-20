@@ -50,6 +50,8 @@ pub async fn validator(
                 Ok(user_id) => {
                     // Inject user_id into request extensions
                     req.extensions_mut().insert(user_id);
+                    // Inject claims into request extensions for additional context (role, tenant_id)
+                    req.extensions_mut().insert(claims);
                     Ok(req)
                 }
                 Err(_) => {

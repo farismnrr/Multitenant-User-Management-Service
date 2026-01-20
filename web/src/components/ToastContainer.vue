@@ -1,21 +1,21 @@
 <script setup>
-import { useToastStore } from '../stores/toast'
+import { useToastStore } from "../stores/toast";
 
-const toastStore = useToastStore()
+const toastStore = useToastStore();
 
 const getToastIcon = (type) => {
-    switch (type) {
-        case 'success':
-            return '✓'
-        case 'error':
-            return '✕'
-        case 'warning':
-            return '⚠'
-        case 'info':
-        default:
-            return 'ℹ'
-    }
-}
+  switch (type) {
+    case "success":
+      return "✓";
+    case "error":
+      return "✕";
+    case "warning":
+      return "⚠";
+    case "info":
+    default:
+      return "ℹ";
+  }
+};
 </script>
 
 <template>

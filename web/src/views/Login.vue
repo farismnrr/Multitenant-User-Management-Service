@@ -1,29 +1,26 @@
 <script setup>
-import { ref } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
-import { useAuthStore } from '../stores/auth'
-import { useQuotes } from '../composables/useQuotes'
-import { usePasswordToggle } from '../composables/usePasswordToggle'
-import { useSSO } from '../composables/useSSO'
-import NetworkBackground from '../components/NetworkBackground.vue'
+import { ref } from "vue";
+import { useRoute } from "vue-router";
+import { usePasswordToggle } from "../composables/usePasswordToggle";
+import { useQuotes } from "../composables/useQuotes";
+import { useSSO } from "../composables/useSSO";
+import { useAuthStore } from "../stores/auth";
 
-const authStore = useAuthStore()
-const route = useRoute()
-const username = ref('')
-const password = ref('')
-const { showPassword, togglePassword } = usePasswordToggle()
+const authStore = useAuthStore();
+const route = useRoute();
+const username = ref("");
+const password = ref("");
+const { showPassword, togglePassword } = usePasswordToggle();
 
 // Use shared quotes composable
-const { currentQuote } = useQuotes()
+const { currentQuote } = useQuotes();
 
 // Use shared SSO composable
-useSSO()
-
-
+useSSO();
 
 const handleLogin = async () => {
-    await authStore.login(username.value, password.value)
-}
+  await authStore.login(username.value, password.value);
+};
 </script>
 
 <template>

@@ -1,14 +1,12 @@
 <script setup>
-import { onMounted } from 'vue'
-import { useAuthStore } from './stores/auth'
-import ToastContainer from './components/ToastContainer.vue'
-import { RouterView } from 'vue-router'
+import { onMounted } from "vue";
+import { useAuthStore } from "./stores/auth";
 
-const authStore = useAuthStore()
+const authStore = useAuthStore();
 
 onMounted(() => {
-    authStore.refreshToken()
-})
+  authStore.refreshToken();
+});
 </script>
 
 <template>

@@ -727,7 +727,11 @@ impl AuthUseCase {
     /// # Errors
     ///
     /// Returns `AppError::Forbidden` if user doesn't exist in database.
-    pub async fn verify_user_exists(&self, user_id: uuid::Uuid) -> Result<UserResponse, AppError> {
+    pub async fn verify_user_exists(
+        &self,
+        user_id: uuid::Uuid,
+        tenant_id_str: String,
+    ) -> Result<UserResponse, AppError> {
         // Check if user exists in database
         let user: User = self
             .repository
@@ -741,7 +745,23 @@ impl AuthUseCase {
             .find_by_user_id(user.id)
             .await?;
 
-        Ok(Self::user_to_response_with_details(user, user_details))
+        // Parse tenant ID
+        let tenant_id = uuid::Uuid::parse_str(&tenant_id_str)
+            .map_err(|_| AppError::ValidationError("Invalid tenant ID in token".to_string(), None))?;
+
+        // Fetch role from DB for this tenant
+        // Priority: DB Role > "user"
+        let roles = self
+            .user_tenant_repository
+            .get_user_roles_in_tenant(user.id, tenant_id)
+            .await?;
+        let role = roles.first().cloned().unwrap_or_else(|| "user".to_string());
+
+        Ok(Self::user_to_response_with_details(
+            user,
+            user_details,
+            role,
+        ))
     }
 
     /// Extracts user_id from JWT token in HTTP request.
@@ -892,6 +912,7 @@ impl AuthUseCase {
     fn user_to_response_with_details(
         user: User,
         user_details: Option<UserDetails>,
+        role: String,
     ) -> UserResponse {
         UserResponse {
             id: user.id,
@@ -899,7 +920,7 @@ impl AuthUseCase {
             email: user.email,
             created_at: user.created_at,
             updated_at: user.updated_at,
-            role: "user".to_string(),
+            role,
             details: user_details.map(|details| {
                 let (first, last) = match details.full_name {
                     Some(s) => {

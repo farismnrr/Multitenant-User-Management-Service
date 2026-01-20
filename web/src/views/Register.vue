@@ -1,43 +1,43 @@
 <script setup>
-import { ref, computed } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
-import { useAuthStore } from '../stores/auth'
-import { useQuotes } from '../composables/useQuotes'
-import { usePasswordToggle } from '../composables/usePasswordToggle'
-import { useSSO } from '../composables/useSSO'
-import { ERROR_MESSAGES } from '../utils/errorMessages'
-import NetworkBackground from '../components/NetworkBackground.vue'
+import { computed, ref } from "vue";
+import { useRoute } from "vue-router";
+import { usePasswordToggle } from "../composables/usePasswordToggle";
+import { useQuotes } from "../composables/useQuotes";
+import { useSSO } from "../composables/useSSO";
+import { useAuthStore } from "../stores/auth";
+import { ERROR_MESSAGES } from "../utils/errorMessages";
 
-const authStore = useAuthStore()
-const route = useRoute()
-const username = ref('')
-const email = ref('')
-const password = ref('')
-const confirmPassword = ref('')
-const invitationCode = ref('')
-const { showPassword, togglePassword } = usePasswordToggle()
-const { showPassword: showConfirmPassword, togglePassword: toggleConfirmPassword } = usePasswordToggle()
+const authStore = useAuthStore();
+const route = useRoute();
+const username = ref("");
+const email = ref("");
+const password = ref("");
+const confirmPassword = ref("");
+const invitationCode = ref("");
+const { showPassword, togglePassword } = usePasswordToggle();
+const { showPassword: showConfirmPassword, togglePassword: toggleConfirmPassword } =
+  usePasswordToggle();
 
 // Use shared quotes composable
-const { currentQuote } = useQuotes()
+const { currentQuote } = useQuotes();
 
 // Use shared SSO composable
-useSSO()
+useSSO();
 
 const requiresInvitationCode = computed(() => {
-    const role = route.query.role || 'user'
-    return role !== 'user'
-})
+  const role = route.query.role || "user";
+  return role !== "user";
+});
 
 const handleRegister = async () => {
-    if (password.value !== confirmPassword.value) {
-        authStore.error = ERROR_MESSAGES.PASSWORD_MISMATCH
-        return
-    }
-    authStore.error = null
-    const role = route.query.role || 'user'
-    await authStore.register(username.value, email.value, password.value, role, invitationCode.value)
-}
+  if (password.value !== confirmPassword.value) {
+    authStore.error = ERROR_MESSAGES.PASSWORD_MISMATCH;
+    return;
+  }
+  authStore.error = null;
+  const role = route.query.role || "user";
+  await authStore.register(username.value, email.value, password.value, role, invitationCode.value);
+};
 </script>
 
 <template>
