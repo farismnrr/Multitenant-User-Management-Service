@@ -516,13 +516,13 @@ impl AuthUseCase {
     ///
     /// # Returns
     ///
-    /// Returns a tuple of (new access token, new refresh token).
+    /// Returns a tuple of (new access token, expires_in).
     ///
     /// # Errors
     ///
     /// - `AppError::Unauthorized` if token is invalid, expired, or not a refresh token
     /// - `AppError::InternalError` if new token generation fails
-    pub async fn refresh_token(&self, refresh_token: &str) -> Result<(String, String, i64), AppError> {
+    pub async fn refresh_token(&self, refresh_token: &str) -> Result<(String, i64), AppError> {
         // Validate the refresh token
         let claims = self.jwt_service.validate_token(refresh_token).map_err(
             |e: jsonwebtoken::errors::Error| {
@@ -551,7 +551,7 @@ impl AuthUseCase {
         // Verify session exists
         let refresh_token_hash = request_helper::hash_token(refresh_token);
         log::debug!("Validating session for hash: [REDACTED]");
-        let session: UserSession = self
+        let _session: UserSession = self
             .session_repository
             .find_by_refresh_token_hash(&refresh_token_hash)
             .await?
@@ -567,56 +567,16 @@ impl AuthUseCase {
             AppError::Unauthorized("Unauthorized".to_string())
         })?;
 
-        // ROTATION: Delete the old session
-        log::debug!("Deleting old session: {}", session.id);
-        if let Err(e) = self.session_repository.delete_session(session.id).await {
-            match e {
-                AppError::NotFound(_) => {
-                    log::warn!("Session {} already deleted, proceeding.", session.id);
-                }
-                _ => return Err(e),
-            }
-        }
-
-        // Generate new tokens
-        // log::debug!("Generating new tokens for user: {}", user_id);
+        // Generate new access token (refresh token stays the same)
         let new_access_token = self
             .jwt_service
-            .generate_access_token(user_id, tenant_id, role.clone())
+            .generate_access_token(user_id, tenant_id, role)
             .map_err(|e| {
                 AppError::InternalError(format!("Failed to generate access token: {}", e))
             })?;
 
-        // Generate a shared UUID for JTI and DB Session ID (Rotation)
-        let new_session_id = uuid::Uuid::new_v4();
-
-        let new_refresh_token = self
-            .jwt_service
-            .generate_refresh_token(user_id, tenant_id, role, Some(new_session_id.to_string()))
-            .map_err(|e| {
-                AppError::InternalError(format!("Failed to generate refresh token: {}", e))
-            })?;
-
-        // Create new session
-        log::debug!("Creating new session");
-        let new_refresh_token_hash = request_helper::hash_token(&new_refresh_token);
-        let expires_at =
-            Utc::now() + chrono::Duration::seconds(self.jwt_service.get_refresh_token_expiry());
-
-        self.session_repository
-            .create_session(
-                Some(new_session_id),
-                user_id,
-                new_refresh_token_hash,
-                session.user_agent, // Inherit from old session? Or use None since we don't have req here?
-                session.ip_address, // Ideally we should update these from request but we lack request info here.
-                expires_at,
-            )
-            .await?;
-
         let expires_in = self.jwt_service.get_access_token_expiry();
-        // log::debug!("Refresh token rotation successful");
-        Ok((new_access_token, new_refresh_token, expires_in))
+        Ok((new_access_token, expires_in))
     }
 
     /// Extracts refresh token from request cookie and generates new tokens.
@@ -639,7 +599,7 @@ impl AuthUseCase {
     pub async fn refresh_token_from_request(
         &self,
         req: &actix_web::HttpRequest,
-    ) -> Result<(String, String, i64), AppError> {
+    ) -> Result<(String, i64), AppError> {
         // Extract refresh token from cookie
         let refresh_token = req
             .cookie("refresh_token")

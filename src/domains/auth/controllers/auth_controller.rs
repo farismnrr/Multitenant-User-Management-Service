@@ -232,30 +232,9 @@ pub async fn refresh(
     usecase: web::Data<Arc<AuthUseCase>>,
     req: actix_web::HttpRequest,
 ) -> Result<impl Responder, AppError> {
-    let (new_access_token, new_refresh_token, expires_in) = usecase.refresh_token_from_request(&req).await?;
-
-    let refresh_token_expiry = usecase.get_refresh_token_expiry();
-    let cookie_domain = std::env::var("COOKIE_DOMAIN").ok();
-
-    let mut cookie_builder = Cookie::build("refresh_token", new_refresh_token)
-        .path("/")
-        .http_only(true)
-        .secure(true)
-        .same_site(SameSite::None)
-        .max_age(actix_web::cookie::time::Duration::seconds(
-            refresh_token_expiry,
-        ));
-
-    if let Some(domain) = cookie_domain {
-        if !domain.is_empty() {
-            cookie_builder = cookie_builder.domain(domain);
-        }
-    }
-
-    let cookie = cookie_builder.finish();
+    let (new_access_token, expires_in) = usecase.refresh_token_from_request(&req).await?;
 
     Ok(HttpResponse::Ok()
-        .cookie(cookie)
         .json(SuccessResponseDTO::new(
             "Token refreshed successfully",
             serde_json::json!({
