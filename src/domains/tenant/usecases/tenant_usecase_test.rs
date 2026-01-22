@@ -41,8 +41,8 @@ mod tests {
             name: name.to_string(),
             description: Some(description.to_string()),
             api_key: Some("test-api-key".to_string()),
-            created_at: Utc::now().into(),
-            updated_at: Utc::now().into(),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
             deleted_at: None,
         };
         let tenant_clone = tenant.clone();
@@ -87,8 +87,8 @@ mod tests {
             name: name.to_string(),
             description: None,
             api_key: Some("existing-api-key".to_string()),
-            created_at: Utc::now().into(),
-            updated_at: Utc::now().into(),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
             deleted_at: None,
         };
         let tenant_clone = tenant.clone();

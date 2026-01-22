@@ -165,8 +165,8 @@ mod tests {
             username: "testuser".to_string(),
             email: email.to_string(),
             password_hash: hashed_password,
-            created_at: Utc::now().into(),
-            updated_at: Utc::now().into(),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
             deleted_at: None,
         };
         let user_clone = user.clone();
@@ -187,8 +187,8 @@ mod tests {
                     refresh_token_hash: "hash".to_string(),
                     user_agent: None,
                     ip_address: None,
-                    expires_at: Utc::now().into(),
-                    created_at: Utc::now().into(),
+                    expires_at: Utc::now(),
+                    created_at: Utc::now(),
                 })
             });
 
@@ -203,7 +203,7 @@ mod tests {
                     error_message: None,
                     ip_address: None,
                     user_agent: None,
-                    created_at: Utc::now().into(),
+                    created_at: Utc::now(),
                 })
             });
 
@@ -254,8 +254,8 @@ mod tests {
             username: "testuser".to_string(),
             email: email.to_string(),
             password_hash: hashed_password,
-            created_at: Utc::now().into(),
-            updated_at: Utc::now().into(),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
             deleted_at: None,
         };
         let user_clone = user.clone();
@@ -275,7 +275,7 @@ mod tests {
                     error_message: None,
                     ip_address: None,
                     user_agent: None,
-                    created_at: Utc::now().into(),
+                    created_at: Utc::now(),
                 })
             });
 
@@ -333,8 +333,8 @@ mod tests {
                 username: username.to_string(),
                 email: email.to_string(),
                 password_hash: "hash".to_string(),
-                created_at: Utc::now().into(),
-                updated_at: Utc::now().into(),
+                created_at: Utc::now(),
+                updated_at: Utc::now(),
                 deleted_at: None,
             })
         });
@@ -348,8 +348,8 @@ mod tests {
                 address: None,
                 date_of_birth: None,
                 profile_picture_url: None,
-                created_at: Utc::now().into(),
-                updated_at: Utc::now().into(),
+                created_at: Utc::now(),
+                updated_at: Utc::now(),
                 deleted_at: None,
             })
         });
@@ -367,7 +367,7 @@ mod tests {
                     error_message: None,
                     ip_address: None,
                     user_agent: None,
-                    created_at: Utc::now().into(),
+                    created_at: Utc::now(),
                 })
             });
 
@@ -435,8 +435,8 @@ mod tests {
                 username: username.to_string(),
                 email: email.to_string(),
                 password_hash: "hash".to_string(),
-                created_at: Utc::now().into(),
-                updated_at: Utc::now().into(),
+                created_at: Utc::now(),
+                updated_at: Utc::now(),
                 deleted_at: None,
             })
         });
@@ -450,8 +450,8 @@ mod tests {
                 address: None,
                 date_of_birth: None,
                 profile_picture_url: None,
-                created_at: Utc::now().into(),
-                updated_at: Utc::now().into(),
+                created_at: Utc::now(),
+                updated_at: Utc::now(),
                 deleted_at: None,
             })
         });
@@ -469,7 +469,7 @@ mod tests {
                     error_message: None,
                     ip_address: None,
                     user_agent: None,
-                    created_at: Utc::now().into(),
+                    created_at: Utc::now(),
                 })
             });
 
@@ -532,7 +532,7 @@ mod tests {
                     error_message: None,
                     ip_address: None,
                     user_agent: None,
-                    created_at: Utc::now().into(),
+                    created_at: Utc::now(),
                 })
             });
 
@@ -590,8 +590,8 @@ mod tests {
             username: "user".to_string(),
             email: email.to_string(),
             password_hash: password::hash_password(password).unwrap(),
-            created_at: Utc::now().into(),
-            updated_at: Utc::now().into(),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
             deleted_at: None,
         };
         let user_clone = user.clone();
@@ -618,8 +618,8 @@ mod tests {
                     refresh_token_hash: "hash".to_string(),
                     user_agent: None,
                     ip_address: None,
-                    expires_at: Utc::now().into(),
-                    created_at: Utc::now().into(),
+                    expires_at: Utc::now(),
+                    created_at: Utc::now(),
                 })
             });
 
@@ -635,7 +635,7 @@ mod tests {
                     error_message: None,
                     ip_address: None,
                     user_agent: None,
-                    created_at: Utc::now().into(),
+                    created_at: Utc::now(),
                 })
             });
 
@@ -692,8 +692,8 @@ mod tests {
             username: "user".to_string(),
             email: email.to_string(),
             password_hash: password::hash_password(password).unwrap(),
-            created_at: Utc::now().into(),
-            updated_at: Utc::now().into(),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
             deleted_at: None,
         };
         let user_clone = user.clone();
@@ -722,7 +722,7 @@ mod tests {
                     error_message: None,
                     ip_address: None,
                     user_agent: None,
-                    created_at: Utc::now().into(),
+                    created_at: Utc::now(),
                 })
             });
 
@@ -779,8 +779,8 @@ mod tests {
             username: "testuser".to_string(),
             email: email.to_string(),
             password_hash: hashed_password,
-            created_at: Utc::now().into(),
-            updated_at: Utc::now().into(),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
             deleted_at: None,
         };
         let user_clone = user.clone();
@@ -803,7 +803,7 @@ mod tests {
                     error_message: None,
                     ip_address: None,
                     user_agent: None,
-                    created_at: Utc::now().into(),
+                    created_at: Utc::now(),
                 })
             });
 
@@ -862,8 +862,8 @@ mod tests {
             username: "user".to_string(),
             email: email.to_string(),
             password_hash: password::hash_password(password).unwrap(),
-            created_at: Utc::now().into(),
-            updated_at: Utc::now().into(),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
             deleted_at: None,
         };
         let user_clone = user.clone();
@@ -898,8 +898,8 @@ mod tests {
                     refresh_token_hash: "hash".to_string(),
                     user_agent: None,
                     ip_address: None,
-                    expires_at: Utc::now().into(),
-                    created_at: Utc::now().into(),
+                    expires_at: Utc::now(),
+                    created_at: Utc::now(),
                 })
             });
 
@@ -914,7 +914,7 @@ mod tests {
                     error_message: None,
                     ip_address: None,
                     user_agent: None,
-                    created_at: Utc::now().into(),
+                    created_at: Utc::now(),
                 })
             });
 
@@ -972,8 +972,8 @@ mod tests {
             username: "user".to_string(),
             email: email.to_string(),
             password_hash: password::hash_password(correct_password).unwrap(),
-            created_at: Utc::now().into(),
-            updated_at: Utc::now().into(),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
             deleted_at: None,
         };
         let user_clone = user.clone();
@@ -993,7 +993,7 @@ mod tests {
                     error_message: None,
                     ip_address: None,
                     user_agent: None,
-                    created_at: Utc::now().into(),
+                    created_at: Utc::now(),
                 })
             });
 
@@ -1049,8 +1049,8 @@ mod tests {
             username: "user".to_string(),
             email: email.to_string(),
             password_hash: password::hash_password(password).unwrap(),
-            created_at: Utc::now().into(),
-            updated_at: Utc::now().into(),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
             deleted_at: None,
         };
         let user_clone = user.clone();
@@ -1073,7 +1073,7 @@ mod tests {
                     error_message: None,
                     ip_address: None,
                     user_agent: None,
-                    created_at: Utc::now().into(),
+                    created_at: Utc::now(),
                 })
             });
 
@@ -1129,9 +1129,9 @@ mod tests {
             username: "deleted_user".to_string(),
             email: email.to_string(),
             password_hash: password::hash_password(password).unwrap(),
-            created_at: Utc::now().into(),
-            updated_at: Utc::now().into(),
-            deleted_at: Some(Utc::now().into()), // <--- DELETED
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            deleted_at: Some(Utc::now()), // <--- DELETED
         };
         let user_clone = user.clone();
 
@@ -1146,8 +1146,8 @@ mod tests {
                 username: "deleted_user".to_string(),
                 email: "deleted@example.com".to_string(),
                 password_hash: "hash".to_string(),
-                created_at: Utc::now().into(),
-                updated_at: Utc::now().into(),
+                created_at: Utc::now(),
+                updated_at: Utc::now(),
                 deleted_at: None, // <--- RESTORED
             })
         });
@@ -1161,8 +1161,8 @@ mod tests {
                     refresh_token_hash: "hash".to_string(),
                     user_agent: None,
                     ip_address: None,
-                    expires_at: Utc::now().into(),
-                    created_at: Utc::now().into(),
+                    expires_at: Utc::now(),
+                    created_at: Utc::now(),
                 })
             });
 
@@ -1177,7 +1177,7 @@ mod tests {
                     error_message: None,
                     ip_address: None,
                     user_agent: None,
-                    created_at: Utc::now().into(),
+                    created_at: Utc::now(),
                 })
             });
 
@@ -1233,8 +1233,8 @@ mod tests {
             username: existing_username.to_string(),
             email: existing_email.to_string(),
             password_hash: "hash".to_string(),
-            created_at: Utc::now().into(),
-            updated_at: Utc::now().into(),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
             deleted_at: None,
         };
         let user_clone = existing_user.clone();
@@ -1259,7 +1259,7 @@ mod tests {
                     error_message: None,
                     ip_address: None,
                     user_agent: None,
-                    created_at: Utc::now().into(),
+                    created_at: Utc::now(),
                 })
             });
 
@@ -1315,8 +1315,8 @@ mod tests {
             username: "user".to_string(),
             email: email.to_string(),
             password_hash: password::hash_password(password).unwrap(),
-            created_at: Utc::now().into(),
-            updated_at: Utc::now().into(),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
             deleted_at: None,
         };
         let user_clone = user.clone();
@@ -1339,7 +1339,7 @@ mod tests {
                     error_message: None,
                     ip_address: None,
                     user_agent: None,
-                    created_at: Utc::now().into(),
+                    created_at: Utc::now(),
                 })
             });
 
@@ -1403,8 +1403,8 @@ mod tests {
             username: "multiuser".to_string(),
             email: email.to_string(),
             password_hash: password::hash_password(password).unwrap(),
-            created_at: Utc::now().into(),
-            updated_at: Utc::now().into(),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
             deleted_at: None,
         };
         let user_clone = user.clone();
@@ -1425,8 +1425,8 @@ mod tests {
                     refresh_token_hash: "hash".to_string(),
                     user_agent: None,
                     ip_address: None,
-                    expires_at: Utc::now().into(),
-                    created_at: Utc::now().into(),
+                    expires_at: Utc::now(),
+                    created_at: Utc::now(),
                 })
             });
 
@@ -1441,7 +1441,7 @@ mod tests {
                     error_message: None,
                     ip_address: None,
                     user_agent: None,
-                    created_at: Utc::now().into(),
+                    created_at: Utc::now(),
                 })
             });
 

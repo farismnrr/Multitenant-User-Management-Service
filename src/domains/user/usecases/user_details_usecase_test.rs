@@ -39,8 +39,8 @@ mod tests {
             address: None,
             date_of_birth: None,
             profile_picture_url: None,
-            created_at: Utc::now().into(),
-            updated_at: Utc::now().into(),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
             deleted_at: None,
         };
         let existing_clone = existing_details.clone();
@@ -54,8 +54,8 @@ mod tests {
             address: None,
             date_of_birth: None,
             profile_picture_url: None,
-            created_at: Utc::now().into(),
-            updated_at: Utc::now().into(),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
             deleted_at: None,
         };
         let updated_clone = updated_details.clone();
