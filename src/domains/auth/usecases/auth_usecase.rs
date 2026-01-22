@@ -860,16 +860,8 @@ impl AuthUseCase {
     }
 
     pub async fn generate_invitation_code(&self) -> Result<String, AppError> {
-        // Generate a random 8-character string
-        use rand::distributions::Alphanumeric;
-        use rand::rngs::OsRng;
-        use rand::Rng;
-        let mut rng = OsRng;
-        let code: String = (&mut rng)
-            .sample_iter(&Alphanumeric)
-            .take(8)
-            .map(char::from)
-            .collect();
+        // Generate a random 8-character code using UUID v4 (hex) to avoid rand deps issues
+        let code = uuid::Uuid::new_v4().to_simple().to_string()[..8].to_string();
 
         // Save with 1 hour TTL
         self.invitation_code_repository
