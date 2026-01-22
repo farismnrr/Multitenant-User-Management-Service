@@ -6,7 +6,7 @@ async fn test_request_logger_middleware() {
     let app = test::init_service(
         App::new()
             .wrap(RequestLoggerMiddleware)
-            .route("/", web::get().to(|| HttpResponse::Ok())),
+            .route("/", web::get().to(HttpResponse::Ok)),
     )
     .await;
 

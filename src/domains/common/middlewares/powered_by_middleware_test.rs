@@ -6,7 +6,7 @@ async fn test_powered_by_header() {
     let app = test::init_service(
         App::new()
             .wrap(PoweredByMiddleware)
-            .route("/", web::get().to(|| HttpResponse::Ok())),
+            .route("/", web::get().to(HttpResponse::Ok)),
     )
     .await;
 
