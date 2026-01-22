@@ -861,8 +861,11 @@ impl AuthUseCase {
 
     pub async fn generate_invitation_code(&self) -> Result<String, AppError> {
         // Generate a random 8-character string
-        use rand::{distributions::Alphanumeric, Rng};
-        let code: String = rand::thread_rng()
+        use rand::distributions::Alphanumeric;
+        use rand::rngs::OsRng;
+        use rand::Rng;
+        let mut rng = OsRng;
+        let code: String = (&mut rng)
             .sample_iter(&Alphanumeric)
             .take(8)
             .map(char::from)
