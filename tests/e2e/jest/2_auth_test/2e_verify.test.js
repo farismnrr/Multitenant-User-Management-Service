@@ -240,8 +240,9 @@ describe("GET /auth/verify - Verify Token", () => {
 
     // Assert user data is present
     expect(response.data.data).toBeDefined();
-    expect(response.data.data.username).toBe(testUser.username);
-    expect(response.data.data.email).toBe(testUser.email);
+    expect(response.data.data.user).toBeDefined();
+    expect(response.data.data.user.username).toBe(testUser.username);
+    expect(response.data.data.user.email).toBe(testUser.email);
   });
 
   // 9. Verification without API Key
@@ -255,6 +256,6 @@ describe("GET /auth/verify - Verify Token", () => {
 
     expect(response.status).toBe(200);
     expect(response.data.status).toBe(true);
-    expect(response.data.data.username).toBe(testUser.username);
+    expect(response.data.data.user.username).toBe(testUser.username);
   });
 });

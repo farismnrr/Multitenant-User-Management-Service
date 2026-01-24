@@ -138,8 +138,7 @@ pub async fn login(
         .json(SuccessResponseDTO::new(
             "Login successful",
             serde_json::json!({
-                "access_token": auth_response.access_token,
-                "expires_in": auth_response.expires_in
+                "access_token": auth_response.access_token
             }),
         )))
 }
@@ -233,13 +232,12 @@ pub async fn refresh(
     usecase: web::Data<Arc<AuthUseCase>>,
     req: actix_web::HttpRequest,
 ) -> Result<impl Responder, AppError> {
-    let (new_access_token, expires_in) = usecase.refresh_token_from_request(&req).await?;
+    let (new_access_token, _expires_in) = usecase.refresh_token_from_request(&req).await?;
 
     Ok(HttpResponse::Ok().json(SuccessResponseDTO::new(
         "Token refreshed successfully",
         serde_json::json!({
-            "access_token": new_access_token,
-            "expires_in": expires_in
+            "access_token": new_access_token
         }),
     )))
 }
@@ -265,7 +263,10 @@ pub async fn verify(
 
     let user_response = usecase.verify_user_exists(user_id, tenant_id).await?;
 
-    Ok(HttpResponse::Ok().json(SuccessResponseDTO::new("Token is valid", user_response)))
+    Ok(HttpResponse::Ok().json(SuccessResponseDTO::new(
+        "Token is valid",
+        serde_json::json!({ "user": user_response }),
+    )))
 }
 
 /// Changes the authenticated user's password.
