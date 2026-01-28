@@ -47,7 +47,7 @@ RUN cargo build --release --workspace && \
 # ============================================================================
 # Stage 2: Build Vue Frontend
 # ============================================================================
-FROM node:22-bookworm AS frontend-builder
+FROM node:25-bookworm AS frontend-builder
 
 WORKDIR /app/web
 
@@ -70,7 +70,7 @@ RUN npm run build
 # Stage 2.5: E2E Testing (Quality Gate)
 # Dies if tests fail
 # ============================================================================
-FROM node:22-bookworm AS e2e-tester
+FROM node:25-bookworm AS e2e-tester
 
 # Install runtime deps for backend (backend compiled in debian-slim-bookworm context)
 RUN apt-get update && apt-get install -y \
