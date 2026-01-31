@@ -34,15 +34,21 @@ const handleLogin = async () => {
       <NetworkBackground />
        
       <div class="visual-content">
-        <div class="brand-container">
-          <img
-            src="/logo.svg"
-            alt="IoTNet Logo"
-            class="brand-logo-large"
-          >
-          <!-- Optional: Keep text if needed, or remove. User said "posisi iotnetnya kurang bagus", using logo is safer -->
+        <div class="brand-section">
+          <div class="brand-logo-wrapper">
+            <img
+              src="/logo.svg"
+              alt="IoTNet Logo"
+              class="brand-logo-large"
+            >
+          </div>
+          <div class="brand-info">
+            <span class="brand-name">IoTNet</span>
+            <span class="brand-tagline">Secure Infrastructure Management</span>
+          </div>
         </div>
-        <div class="quote-container">
+
+        <div class="quote-card">
           <transition
             name="fade"
             mode="out-in"
@@ -54,7 +60,10 @@ const handleLogin = async () => {
               "{{ currentQuote.text }}"
             </p>
           </transition>
-          <span class="brand-author">— {{ currentQuote.author }}</span>
+          <div class="quote-author-line">
+            <span class="author-dash"></span>
+            <span class="brand-author">{{ currentQuote.author }}</span>
+          </div>
         </div>
       </div>
       <div class="overlay-gradient" />
@@ -204,7 +213,8 @@ const handleLogin = async () => {
 .overlay-gradient {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: linear-gradient(to bottom, rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.5));
+  background: radial-gradient(circle at 20% 30%, rgba(79, 70, 229, 0.15) 0%, transparent 70%),
+              linear-gradient(to bottom, rgba(15, 23, 42, 0.9), rgba(15, 23, 42, 0.7));
   z-index: 1;
 }
 
@@ -217,20 +227,58 @@ const handleLogin = async () => {
   justify-content: space-between;
 }
 
-.brand-container {
-    margin-top: 1rem;
+.brand-section {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  margin-top: 1rem;
+}
+
+.brand-logo-wrapper {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(8px);
+  padding: 0.75rem;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
 }
 
 .brand-logo-large {
-    height: 48px; /* Adjust as needed */
+    height: 42px;
     width: auto;
+}
+
+.brand-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.brand-name {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  background: linear-gradient(to right, #fff, #94a3b8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.brand-tagline {
+  font-size: 0.8125rem;
+  color: #94a3b8;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .brand-logo-mobile {
   display: block;
-  height: 56px;
+  height: 48px;
   width: auto;
   margin: 0 auto 1.5rem auto;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.1));
 }
 
 @media (min-width: 1024px) {
@@ -239,24 +287,45 @@ const handleLogin = async () => {
   }
 }
 
-.quote-container {
-    max-width: 480px;
+.quote-card {
+  max-width: 520px;
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(12px);
+  padding: 2.5rem;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
 }
 
 .brand-quote {
-  font-size: 1.75rem; /* Larger quote */
-  font-weight: 600;
-  line-height: 1.3;
-  color: white;
-  margin-bottom: 1.5rem;
+  font-size: 1.5rem;
+  font-weight: 500;
+  line-height: 1.4;
+  color: #f8fafc;
+  margin-bottom: 2rem;
+  font-style: italic;
+  letter-spacing: -0.01em;
+}
+
+.quote-author-line {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.author-dash {
+  width: 24px;
+  height: 2px;
+  background: var(--color-accent);
+  border-radius: 2px;
 }
 
 .brand-author {
-    font-size: 1rem;
+    font-size: 0.875rem;
     color: #94a3b8;
-    font-weight: 500;
+    font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.1em;
 }
 
 /* Form Panel (Right) */
