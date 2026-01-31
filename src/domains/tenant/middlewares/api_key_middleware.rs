@@ -87,12 +87,80 @@ where
             }
 
             if let Some(db) = db {
-                // 1. First check if it matches the global super key
-                if !expected_global_key.is_empty() && api_key_value == expected_global_key {
+                // 1. First check if client provided a specific API Key (explicit auth)
+                if !api_key_value.is_empty() {
+                    // 1a. Check if it matches the global super key
+                    if !expected_global_key.is_empty() && api_key_value == expected_global_key {
+                        debug!(
+                            "[Middleware | ApiKey] Global API Key detected. Resolving default tenant."
+                        );
+                        // Fetch the first tenant created (acting as default tenant for simple API Key auth)
+                        match crate::domains::tenant::entities::tenant::Entity::find()
+                            .order_by_asc(crate::domains::tenant::entities::tenant::Column::CreatedAt)
+                            .one(db.as_ref())
+                            .await
+                        {
+                            Ok(Some(tenant)) => {
+                                debug!(
+                                    "[Middleware | ApiKey] Resolved Default Tenant ID: {}",
+                                    tenant.id
+                                );
+                                resolved_tenant_id = Some(tenant.id);
+                            }
+                            Ok(None) => {
+                                debug!(
+                                    "[Middleware | ApiKey] No tenant found in database for global key."
+                                );
+                            }
+                            Err(e) => {
+                                error!(
+                                    "[Middleware | ApiKey] Database error fetching default tenant: {}",
+                                    e
+                                );
+                            }
+                        }
+                    } else {
+                        // 1b. Check if it's a tenant-specific API Key
+                        use sea_orm::ColumnTrait;
+                        use sea_orm::QueryFilter;
+
+                        debug!("[Middleware | ApiKey] Checking tenant-specific API Key.");
+                        match crate::domains::tenant::entities::tenant::Entity::find()
+                            .filter(
+                                crate::domains::tenant::entities::tenant::Column::ApiKey
+                                    .eq(api_key_value),
+                            )
+                            .filter(
+                                crate::domains::tenant::entities::tenant::Column::DeletedAt.is_null(),
+                            )
+                            .one(db.as_ref())
+                            .await
+                        {
+                            Ok(Some(tenant)) => {
+                                debug!(
+                                    "[Middleware | ApiKey] Resolved Tenant ID from specific key: {}",
+                                    tenant.id
+                                );
+                                resolved_tenant_id = Some(tenant.id);
+                            }
+                            Ok(None) => {
+                                debug!("[Middleware | ApiKey] No tenant found with matching API Key.");
+                            }
+                            Err(e) => {
+                                error!(
+                                    "[Middleware | ApiKey] Database error fetching tenant by key: {}",
+                                    e
+                                );
+                            }
+                        }
+                    }
+                } else {
+                    // 2. No explicit API Key provided - use server-side default tenant
+                    // This allows unauthenticated endpoints (login, register) to work
+                    // without requiring the client to provide X-API-Key
                     debug!(
-                        "[Middleware | ApiKey] Global API Key detected. Resolving default tenant."
+                        "[Middleware | ApiKey] No API Key provided. Resolving default tenant."
                     );
-                    // Fetch the first tenant created (acting as default tenant for simple API Key auth)
                     match crate::domains::tenant::entities::tenant::Entity::find()
                         .order_by_asc(crate::domains::tenant::entities::tenant::Column::CreatedAt)
                         .one(db.as_ref())
@@ -100,53 +168,19 @@ where
                     {
                         Ok(Some(tenant)) => {
                             debug!(
-                                "[Middleware | ApiKey] Resolved Default Tenant ID: {}",
+                                "[Middleware | ApiKey] Resolved Default Tenant ID (server-side): {}",
                                 tenant.id
                             );
                             resolved_tenant_id = Some(tenant.id);
                         }
                         Ok(None) => {
                             debug!(
-                                "[Middleware | ApiKey] No tenant found in database for global key."
+                                "[Middleware | ApiKey] No tenant found in database for server-side default."
                             );
                         }
                         Err(e) => {
                             error!(
                                 "[Middleware | ApiKey] Database error fetching default tenant: {}",
-                                e
-                            );
-                        }
-                    }
-                } else if !api_key_value.is_empty() {
-                    // 2. Check if it's a tenant-specific API Key
-                    use sea_orm::ColumnTrait;
-                    use sea_orm::QueryFilter;
-
-                    debug!("[Middleware | ApiKey] Checking tenant-specific API Key.");
-                    match crate::domains::tenant::entities::tenant::Entity::find()
-                        .filter(
-                            crate::domains::tenant::entities::tenant::Column::ApiKey
-                                .eq(api_key_value),
-                        )
-                        .filter(
-                            crate::domains::tenant::entities::tenant::Column::DeletedAt.is_null(),
-                        )
-                        .one(db.as_ref())
-                        .await
-                    {
-                        Ok(Some(tenant)) => {
-                            debug!(
-                                "[Middleware | ApiKey] Resolved Tenant ID from specific key: {}",
-                                tenant.id
-                            );
-                            resolved_tenant_id = Some(tenant.id);
-                        }
-                        Ok(None) => {
-                            debug!("[Middleware | ApiKey] No tenant found with matching API Key.");
-                        }
-                        Err(e) => {
-                            error!(
-                                "[Middleware | ApiKey] Database error fetching tenant by key: {}",
                                 e
                             );
                         }
@@ -163,7 +197,7 @@ where
                 let res = service.call(req).await?;
                 Ok(res.map_into_left_body())
             } else {
-                debug!("[Middleware | ApiKey] Unauthorized request to '{}'", path);
+                debug!("[Middleware | ApiKey] Unable to resolve tenant for request to '{}'", path);
                 let res = HttpResponse::Unauthorized()
                     .insert_header((header::CONTENT_TYPE, "application/json"))
                     .json(ErrorResponseDTO {
