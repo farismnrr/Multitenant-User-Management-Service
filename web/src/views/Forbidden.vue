@@ -1,7 +1,9 @@
 <script setup>
+import NetworkBackground from '../components/NetworkBackground.vue'
+
 const goBack = () => {
-  window.location.href = "/login";
-};
+  window.location.href = '/login'
+}
 </script>
 
 <template>
