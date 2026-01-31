@@ -17,6 +17,6 @@ services:
 
 networks:
   postgres-network:
-    name: postgres_postgres-network
+    name: postgres-production_postgres-network
     external: true
 
