@@ -16,3 +16,9 @@ snapshot.json
 *.log
 .env.*
 .dev_data
+
+# secrets
+secret/
+*.secret
+*.key
+*.pem

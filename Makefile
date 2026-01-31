@@ -40,12 +40,26 @@ help:
 	@echo ""
 
 # Run development server with hot reload (requires cargo-watch)
-dev: start-web
+# This will watch both Rust and Vue.js files, rebuilding frontend when needed
+dev:
 	@echo "🚀 Starting development server with hot reload..."
-	@echo "💡 Tip: Install cargo-watch with 'make install-watch' if not installed"
-	@cargo watch -i "*.sqlite*" -i "*.db*" -i "rocksdb_cache" -x run || (echo "❌ cargo-watch not found. Installing..." && cargo install cargo-watch && cargo watch -i "*.sqlite*" -i "*.db*" -i "rocksdb_cache" -x run)
+	@echo "💡 Watching Rust backend + Vue.js frontend (auto-rebuild on change)"
+	@cargo watch \
+		-i "*.sqlite*" \
+		-i "*.db*" \
+		-i "rocksdb_cache" \
+		-i "logs/*" \
+		-i "web/node_modules" \
+		-i "web/dist" \
+		-w src \
+		-w web/src \
+		-w web/public \
+		-w web/index.html \
+		-w web/vite.config.js \
+		-s 'cd web && npm run build && cd .. && cargo run' \
+		|| (echo "❌ cargo-watch not found. Installing..." && cargo install cargo-watch && cargo watch -i "*.sqlite*" -i "*.db*" -i "rocksdb_cache" -i "logs/*" -i "web/node_modules" -i "web/dist" -w src -w web/src -w web/public -w web/index.html -w web/vite.config.js -s 'cd web && npm run build && cd .. && cargo run')
 
-# Run development server with hot reload
+# Run development server (no hot reload)
 start:
 	@echo "🚀 Starting development server (no hot reload)..."
 	cargo run
@@ -56,10 +70,15 @@ start-web:
 	@cd web && npm install && npm run build
 	@echo "✅ Frontend built and ready to be served from Rust (port 5500)"
 
-# Run web frontend (hot reload with Vite dev server)
+# Run web frontend (hot reload with Vite dev server on port 5173)
 dev-web:
-	@echo "🚀 Starting Web Frontend (Vite hot reload)..."
-	@cd web && npm run dev
+	@echo "🚀 Starting Web Frontend (Vite hot reload on port 5173)..."
+	@cd web && npm install && npm run dev
+
+# Run both backend and frontend concurrently with hot reload
+dev-full:
+	@echo "🚀 Starting User Auth Plugin (Backend + Frontend with hot reload)..."
+	@npx concurrently --names "RUST,VUE" --prefix-colors "magenta,cyan" "make dev" "make dev-web"
 
 # Run both backend and frontend concurrently (static build mode)
 dev-all:
