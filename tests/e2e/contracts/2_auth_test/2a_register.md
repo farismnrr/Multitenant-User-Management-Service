@@ -5,7 +5,7 @@ Register a new user account.
 
 ## Test Scenarios
 
-### 1. Missing API key
+### 1. Missing API key (now allowed - uses server-side default tenant)
 - **URL**: `http://localhost:5500/auth/register`
 - **Method**: `POST`
 - **Pre-conditions**: None.
@@ -16,12 +16,13 @@ Register a new user account.
 - **Expected Response**:
   ```json
   {
-    "status": false,
-    "message": "Unauthorized"
+    "status": true,
+    "message": "User registered successfully",
+    "data": { "user_id": "...", "username": "...", "email": "..." }
   }
   ```
-  *(Status: 401)*
-- **Side Effects**: None.
+  *(Status: 201)* OR validation error if payload invalid
+- **Side Effects**: User account created in default tenant.
 
 ### 2. Invalid email format
 - **URL**: `http://localhost:5500/auth/register`
