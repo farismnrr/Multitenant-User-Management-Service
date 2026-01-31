@@ -15,3 +15,4 @@ snapshot.json
 *.db
 *.log
 .env.*
+.dev_data

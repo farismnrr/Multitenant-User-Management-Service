@@ -103,13 +103,15 @@ push-local:
 	@read -p "Enter Docker tag to push (default: latest): " tag; \
 	tag=$${tag:-latest}; \
 	echo "🚀 Pushing to GHCR with multi-arch build (amd64, arm64) - tag: $$tag..."; \
-	export $$(grep -v '^#' .env | grep -v '^$$' | xargs); \
-	if [ -n "$${CR_PAT}" ] || [ -n "$${GITHUB_TOKEN}" ]; then \
-		echo "🔐 Logging in to GHCR..."; \
-		echo "$${CR_PAT:-$$GITHUB_TOKEN}" | docker login ghcr.io -u farismnrr --password-stdin; \
-	else \
-		echo "⚠️  No CR_PAT or GITHUB_TOKEN found. Skipping login (assuming already logged in)..."; \
-	fi; \
+	if [ "$$SKIP_LOGIN" != "true" ]; then \
+		export $$(grep -v '^#' .env | grep -v '^$$' | xargs); \
+		if [ -n "$${CR_PAT}" ] || [ -n "$${GITHUB_TOKEN}" ]; then \
+			echo "🔐 Logging in to GHCR..."; \
+			echo "$${CR_PAT:-$$GITHUB_TOKEN}" | docker login ghcr.io -u farismnrr --password-stdin; \
+		else \
+			echo "⚠️  No CR_PAT or GITHUB_TOKEN found. Skipping login (assuming already logged in)..."; \
+		fi; \
+	fi \
 	docker buildx build --platform linux/amd64,linux/arm64 -t $(GHCR_REPO):$$tag --push .; \
 	echo "✅ Image pushed to $(GHCR_REPO):$$tag"
 

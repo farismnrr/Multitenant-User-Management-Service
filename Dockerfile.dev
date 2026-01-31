@@ -21,27 +21,12 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
     cargo install cargo-watch
 
-# Pre-build dependencies for caching
-COPY Cargo.toml Cargo.lock ./
-COPY migration/Cargo.toml migration/
-
-# Create dummy source files
-RUN mkdir -p src && echo "fn main() {}" > src/main.rs && \
-    echo "pub fn lib() {}" > src/lib.rs && \
-    mkdir -p migration/src && echo "fn main() {}" > migration/src/main.rs && \
-    echo "pub fn lib() {}" > migration/src/lib.rs
-
-# Build dependencies with cache mount
-RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
-    --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
-    --mount=type=cache,target=/app/target,sharing=locked \
-    cargo build 2>/dev/null || true
-
-# Clean up dummy files
-RUN rm -rf src migration/src target/debug/.fingerprint/user-auth-plugin*
-
 # Copy actual source code
 COPY . .
 
-# Run migrations then start with cargo watch
-CMD ["sh", "-c", "cd migration && cargo run -- up && cd .. && cargo watch -x run -w src -w migration"]
+# Copy and prepare startup script
+COPY start-dev.sh .
+RUN chmod +x start-dev.sh
+
+# Run startup script
+CMD ["./start-dev.sh"]
