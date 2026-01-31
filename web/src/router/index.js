@@ -69,6 +69,7 @@ router.beforeEach(async (to, _from, next) => {
             // Helper to extract role from JWT
             const getRoleFromToken = (token) => {
                 try {
+                    // eslint-disable-next-line no-undef
                     const payload = JSON.parse(atob(token.split('.')[1]))
                     return payload.role
                 } catch {

@@ -75,7 +75,7 @@ const handleRegister = async () => {
             </p>
           </transition>
           <div class="quote-author-line">
-            <span class="author-dash"></span>
+            <span class="author-dash" />
             <span class="brand-author">{{ currentQuote.author }}</span>
           </div>
         </div>
