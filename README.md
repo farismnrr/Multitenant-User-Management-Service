@@ -24,6 +24,18 @@ A production-ready, standalone user authentication and management service built 
 | [API Reference](docs/06-api-reference.md) | All endpoints with examples |
 | [Troubleshooting](docs/07-troubleshooting.md) | Common issues and solutions |
 
+### 📋 API Contracts
+
+Complete endpoint contracts with request/response examples organized by feature:
+
+- **[Pre-Test Setup](docs/contracts/1_pre_test/)** - Tenant creation with secret key
+- **[Authentication](docs/contracts/2_auth_test/)** - Register, login, logout, refresh tokens
+- **[Tenant Management](docs/contracts/3_tenant_test/)** - Create, read, update, delete tenants
+- **[User Management](docs/contracts/4_user_test/)** - User CRUD operations and profile management
+- **[MQTT Integration](docs/contracts/5_mqtt_test/)** - MQTT user creation, validation, ACL checks
+
+> **Note**: Contracts serve as the single source of truth for API behavior. Each contract includes request/response examples, status codes, and authentication requirements.
+
 ## Caching
 
 This service implements a local persistent cache using [RocksDB](https://rocksdb.org/). This helps reduce database load and improve response times for frequently accessed data.
