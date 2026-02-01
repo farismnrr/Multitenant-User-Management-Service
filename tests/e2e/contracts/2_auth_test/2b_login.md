@@ -5,10 +5,10 @@ Authenticate user and receive access token.
 
 ## Test Scenarios
 
-### 1. Missing API key (now allowed - uses server-side default tenant)
+### 1. Missing API key
 - **URL**: `http://localhost:5500/auth/login`
 - **Method**: `POST`
-- **Pre-conditions**: User exists.
+- **Pre-conditions**: None.
 - **Request Body**:
   ```json
   {
@@ -19,13 +19,12 @@ Authenticate user and receive access token.
 - **Expected Response**:
   ```json
   {
-    "status": true,
-    "message": "Login successful",
-    "data": { "access_token": "...", "user_id": "..." }
+    "status": false,
+    "message": "Unauthorized"
   }
   ```
-  *(Status: 200)* OR authentication error if credentials invalid
-- **Side Effects**: Refresh token cookie set.
+  *(Status: 401)*
+- **Side Effects**: None.
 
 ### 2. Account Security: Login to Banned/Soft-Deleted Account
 - **URL**: `http://localhost:5500/auth/login`

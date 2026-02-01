@@ -19,18 +19,22 @@ describe("POST /auth/login - Login User", () => {
     }
   });
 
-  // 1. Missing API key (now allowed - server uses default tenant)
-  test("Scenario 1: Missing API key (allowed - uses default tenant)", async () => {
+  // 1. Missing API key
+  test("Scenario 1: Missing API key", async () => {
     try {
-      const response = await axios.post(`${BASE_URL}/auth/login`, {
+      await axios.post(`${BASE_URL}/auth/login`, {
         email_or_username: validUser.email,
         password: validUser.password,
       });
-      // Should succeed with default tenant
-      expect(response.status).toBe(200);
+      throw new Error("Should have failed");
     } catch (error) {
-      // If it fails, it should be a validation error, not 401 Unauthorized
-      expect(error.response.status).not.toBe(401);
+      expect(error.response.status).toBe(401);
+      expect(error.response.data).toEqual(
+        expect.objectContaining({
+          status: false,
+          message: "Unauthorized",
+        }),
+      );
     }
   });
 
