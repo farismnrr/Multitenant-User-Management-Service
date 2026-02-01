@@ -154,8 +154,14 @@ See [Frontend Implementation](./04-frontend-implementation.md) for code examples
 | `POST /api/tenants` | `X-Tenant-Secret-Key` |
 | `POST /auth/login` | `X-API-Key` |
 | `POST /auth/register` | `X-API-Key` |
+| `POST /auth/refresh` | `X-API-Key` |
 | `GET /auth/verify` | `Authorization: Bearer {token}` + `X-API-Key` |
 | `DELETE /auth/logout` | `Authorization: Bearer {token}` + `X-API-Key` |
+| `POST /mqtt/create` | `X-API-Key` |
+| `POST /mqtt/check` | `X-API-Key` |
+| `POST /mqtt/acl` | `X-API-Key` |
+| `GET /mqtt` | `X-API-Key` |
+| `DELETE /mqtt/{username}` | `X-API-Key` |
 
 ---
 

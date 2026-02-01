@@ -110,7 +110,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 | Login | `/login` | User authentication |
 | Register | `/register` | New user registration |
 | Logout | `/auth/logout` | Token invalidation |
-| Token Refresh | `/api/auth/refresh` | Get new access token |
+| Token Refresh | `/auth/refresh` | Get new access token |
 
 ---
 

@@ -245,7 +245,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
             // Call Service directly to send the HttpOnly + SameSite=None cookie
             const response = await fetch(`${SSO_URL}/auth/refresh`, {
-                method: "GET",
+                method: "POST",
                 headers: {
                     "Accept": "application/json",
                     "X-API-Key": API_KEY 
