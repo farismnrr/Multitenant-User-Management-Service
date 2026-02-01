@@ -130,7 +130,7 @@ push-local:
 		else \
 			echo "⚠️  No CR_PAT or GITHUB_TOKEN found. Skipping login (assuming already logged in)..."; \
 		fi; \
-	fi \
+	fi; \
 	docker buildx build --platform linux/amd64,linux/arm64 -t $(GHCR_REPO):$$tag --push .; \
 	echo "✅ Image pushed to $(GHCR_REPO):$$tag"
 

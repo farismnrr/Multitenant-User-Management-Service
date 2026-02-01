@@ -8,7 +8,6 @@
 # ============================================================================
 FROM rust:bookworm AS rust-builder
 
-# Install build dependencies for RocksDB
 RUN apt-get update && apt-get install -y \
     pkg-config \
     libssl-dev \
@@ -21,28 +20,21 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy Cargo files first for dependency caching
+# Copy manifests
 COPY Cargo.toml Cargo.lock ./
 COPY migration/Cargo.toml migration/
 
-# Create dummy source files for dependency caching
-RUN mkdir -p src && echo "fn main() {}" > src/main.rs && \
-    echo "pub fn lib() {}" > src/lib.rs && \
-    mkdir -p migration/src && echo "fn main() {}" > migration/src/main.rs && \
-    echo "pub fn lib() {}" > migration/src/lib.rs
+# Fetch deps only (FAST & SAFE)
+RUN cargo fetch
 
-# Build dependencies (cached layer)
-RUN cargo build --release 2>/dev/null || true
-
-# Remove dummy files and copy real source code
+# Copy full source
 COPY src src/
 COPY migration migration/
 
-# Build the actual application
+# REAL build
 RUN cargo build --release --workspace && \
-    strip --strip-debug target/release/user-auth-plugin && \
-    strip --strip-debug target/release/migration && \
-    ls -la target/release
+    strip target/release/user-auth-plugin && \
+    strip target/release/migration
 
 # ============================================================================
 # Stage 2: Build Vue Frontend
