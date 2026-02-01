@@ -16,7 +16,7 @@ This document lists all available API endpoints for authentication and user mana
 
 ## Route Structure
 
-The API is organized into two main scopes:
+The API is organized into three main scopes:
 
 ```
 /api/*          → API Key or Tenant Secret protected
@@ -28,6 +28,14 @@ The API is organized into two main scopes:
   /auth/register → Registration
   /auth/logout  → Logout (JWT required)
   /auth/verify  → Token verification (JWT required)
+  /auth/refresh → Refresh access token (API Key required)
+
+/mqtt/*         → MQTT user management (API Key)
+  /mqtt/create  → Create MQTT user
+  /mqtt/check   → Verify MQTT credentials
+  /mqtt/acl     → Check access permissions
+  /mqtt         → List all MQTT users
+  /mqtt/{username} → Delete MQTT user
 ```
 
 ---
@@ -207,7 +215,7 @@ If `COOKIE_DOMAIN` is configured, it will be scoped to that domain (e.g., `.exam
 ### Refresh Token
 
 ```http
-GET /auth/refresh
+POST /auth/refresh
 X-API-Key: your-api-key
 ```
 
@@ -344,6 +352,164 @@ Content-Type: application/json
 ```http
 DELETE /api/users/{user_id}
 Authorization: Bearer {access_token}
+```
+
+---
+
+## MQTT Endpoints
+
+All MQTT endpoints require `X-API-Key` header for authentication and are used to manage MQTT user credentials and permissions.
+
+### Create MQTT User
+
+```http
+POST /mqtt/create
+X-API-Key: your-api-key
+Content-Type: application/json
+
+{
+    "username": "mqtt_user",
+    "password": "secure_password",
+    "is_superuser": false
+}
+```
+
+**Response (201 Created):**
+
+```json
+{
+    "status": true,
+    "message": "MQTT user created successfully",
+    "data": {
+        "username": "mqtt_user",
+        "is_superuser": false
+    }
+}
+```
+
+### Check MQTT Credentials
+
+```http
+POST /mqtt/check
+X-API-Key: your-api-key
+Content-Type: application/json
+
+{
+    "username": "mqtt_user",
+    "password": "secure_password"
+}
+```
+
+**Response (200 OK - Success):**
+
+```json
+{
+    "status": true,
+    "message": "Credentials verified",
+    "result": "allow"
+}
+```
+
+**Response (401 Unauthorized - Invalid credentials):**
+
+```json
+{
+    "status": false,
+    "message": "Authentication failed",
+    "result": "deny"
+}
+```
+
+### Check MQTT ACL (Access Control List)
+
+```http
+POST /mqtt/acl
+X-API-Key: your-api-key
+Content-Type: application/json
+
+{
+    "username": "mqtt_user",
+    "topic": "users/data/sensor",
+    "access": 1
+}
+```
+
+**Access Types:**
+- `1` = Subscribe
+- `2` = Publish
+- `3` = Subscribe + Publish
+
+**Response (200 OK - Authorized):**
+
+```json
+{
+    "status": true,
+    "message": "Access allowed",
+    "result": "allow"
+}
+```
+
+**Response (403 Forbidden - Not authorized):**
+
+```json
+{
+    "status": false,
+    "message": "Access denied",
+    "result": "deny"
+}
+```
+
+### List MQTT Users
+
+```http
+GET /mqtt
+X-API-Key: your-api-key
+```
+
+**Response (200 OK):**
+
+```json
+{
+    "status": true,
+    "message": "MQTT users retrieved successfully",
+    "data": [
+        {
+            "username": "mqtt_user1",
+            "is_superuser": false,
+            "created_at": "2024-01-15T10:30:00Z"
+        },
+        {
+            "username": "mqtt_user2",
+            "is_superuser": true,
+            "created_at": "2024-01-16T14:22:00Z"
+        }
+    ]
+}
+```
+
+### Delete MQTT User
+
+```http
+DELETE /mqtt/{username}
+X-API-Key: your-api-key
+```
+
+**Response (200 OK):**
+
+```json
+{
+    "status": true,
+    "message": "MQTT user deleted successfully"
+}
+```
+
+**Response (404 Not Found):**
+
+```json
+{
+    "status": false,
+    "message": "MQTT user not found"
+}
 ```
 
 ---
