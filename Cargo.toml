@@ -61,7 +61,7 @@ rand = "0.9"
 
 # URL parsing for SSO redirect validation
 url = "2"
-regex = "1.12.2"
+regex = "1.12.3"
 
 
 [dev-dependencies]
