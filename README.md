@@ -2,6 +2,8 @@
 
 A production-ready, standalone user authentication and management service built with Rust and Actix-web. Designed to be easily plugged into any application requiring secure user management, JWT authentication, and role-based access control.
 
+**Engineering case study:** https://farismnrr.com/projects/multitenant-user-management
+
 ## Key Features
 
 - **Auth**: JWT (Access & Refresh Tokens), Session Management, RBAC
